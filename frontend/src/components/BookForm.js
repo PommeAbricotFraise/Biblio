@@ -369,7 +369,8 @@ const BookForm = ({ book = null, placards = [], shelves = [], onSuccess }) => {
             value={formData.publication_year}
             onChange={(e) => handleInputChange("publication_year", e.target.value)}
             min="1000"
-            max={new Date().getFullYear()}\n            placeholder="Ex: 2020"
+            max={new Date().getFullYear()}
+            placeholder="Ex: 2020"
             className={errors.publication_year ? "border-red-500" : ""}
           />
           {errors.publication_year && (
