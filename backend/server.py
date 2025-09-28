@@ -599,7 +599,12 @@ async def get_library_visualization():
     for placard in placards:
         placard_name = placard["name"]
         visualization_data[placard_name] = {
-            "info": placard,
+            "info": {
+                "id": str(placard["id"]),
+                "name": placard["name"],
+                "description": placard.get("description", ""),
+                "location": placard.get("location", ""),
+            },
             "shelves": {},
             "total_books": 0
         }
@@ -610,7 +615,13 @@ async def get_library_visualization():
         if placard_name in visualization_data:
             shelf_name = shelf["name"]
             visualization_data[placard_name]["shelves"][shelf_name] = {
-                "info": shelf,
+                "info": {
+                    "id": str(shelf["id"]),
+                    "name": shelf["name"],
+                    "placard_name": shelf["placard_name"],
+                    "position": shelf.get("position"),
+                    "capacity": shelf.get("capacity"),
+                },
                 "books": [],
                 "book_count": 0
             }
@@ -621,14 +632,15 @@ async def get_library_visualization():
         shelf_name = book["shelf"]
         
         if placard_name in visualization_data and shelf_name in visualization_data[placard_name]["shelves"]:
-            visualization_data[placard_name]["shelves"][shelf_name]["books"].append({
-                "id": book["id"],
+            book_data = {
+                "id": str(book["id"]),
                 "title": book["title"],
                 "author": book["author"],
                 "category": book.get("category", "Général"),
                 "status": book["status"],
                 "count": book["count"]
-            })
+            }
+            visualization_data[placard_name]["shelves"][shelf_name]["books"].append(book_data)
             visualization_data[placard_name]["shelves"][shelf_name]["book_count"] += book["count"]
             visualization_data[placard_name]["total_books"] += book["count"]
     
