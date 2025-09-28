@@ -272,8 +272,6 @@ async def get_books(
     search: Optional[str] = Query(None),
     placard: Optional[str] = Query(None),
     shelf: Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
     sort_by: Optional[str] = Query("title")
 ):
     """Get all books with optional filtering and sorting"""
@@ -291,12 +289,6 @@ async def get_books(
     
     if shelf:
         filter_query["shelf"] = shelf
-        
-    if category:
-        filter_query["category"] = category
-        
-    if status:
-        filter_query["status"] = status
     
     sort_field = sort_by if sort_by in ["title", "author", "date_added", "last_modified"] else "title"
     
