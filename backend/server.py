@@ -423,7 +423,6 @@ async def create_book_from_isbn(isbn: str, placard: str, shelf: str):
         shelf=shelf,
         description=book_info.description or "",
         pages=book_info.page_count,
-        category=book_info.categories[0] if book_info.categories else "Général",
         language=book_info.language or "fr"
     )
     
