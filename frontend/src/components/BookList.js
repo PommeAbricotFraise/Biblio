@@ -28,14 +28,14 @@ import {
 import { 
   Plus, 
   Search, 
-  Filter, 
   Edit, 
   Trash2, 
   BookOpen,
   Download,
   ScanLine,
-  AlertCircle,
-  CheckCircle
+  Sparkles,
+  Heart,
+  Star
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -50,8 +50,6 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlacard, setSelectedPlacard] = useState("all");
   const [selectedShelf, setSelectedShelf] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
   const [sortBy, setSortBy] = useState("title");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -59,14 +57,17 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Categories uniques extraites des livres
-  const categories = useMemo(() => {
-    const cats = [...new Set(books.map(book => book.category || 'Général').filter(Boolean))];
-    return cats.sort();
-  }, [books]);
-
-  // Statuts disponibles
-  const statuses = ['disponible', 'emprunté', 'perdu', 'en_maintenance'];
+  // Couleurs aléatoires pour les livres
+  const bookColors = [
+    'bg-gradient-to-r from-blue-400 to-blue-600',
+    'bg-gradient-to-r from-green-400 to-green-600',
+    'bg-gradient-to-r from-purple-400 to-purple-600',
+    'bg-gradient-to-r from-pink-400 to-pink-600',
+    'bg-gradient-to-r from-indigo-400 to-indigo-600',
+    'bg-gradient-to-r from-red-400 to-red-600',
+    'bg-gradient-to-r from-yellow-400 to-yellow-600',
+    'bg-gradient-to-r from-teal-400 to-teal-600'
+  ];
 
   // Filtrer et trier les livres
   useEffect(() => {
@@ -93,16 +94,6 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
       filtered = filtered.filter(book => book.shelf === selectedShelf);
     }
 
-    // Filtrage par catégorie
-    if (selectedCategory && selectedCategory !== "all") {
-      filtered = filtered.filter(book => book.category === selectedCategory);
-    }
-
-    // Filtrage par statut
-    if (selectedStatus && selectedStatus !== "all") {
-      filtered = filtered.filter(book => book.status === selectedStatus);
-    }
-
     // Tri
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -112,29 +103,27 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
           return new Date(b.date_added) - new Date(a.date_added);
         case 'last_modified':
           return new Date(b.last_modified) - new Date(a.last_modified);
-        case 'category':
-          return (a.category || '').localeCompare(b.category || '');
         default:
           return a.title.localeCompare(b.title);
       }
     });
 
     setFilteredBooks(filtered);
-  }, [books, searchTerm, selectedPlacard, selectedShelf, selectedCategory, selectedStatus, sortBy]);
+  }, [books, searchTerm, selectedPlacard, selectedShelf, sortBy]);
 
   // Supprimer un livre
   const handleDeleteBook = async (bookId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce livre ?')) {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce livre ? 🗑️')) {
       return;
     }
 
     try {
       await axios.delete(`${API}/books/${bookId}`);
-      toast.success("Livre supprimé avec succès !");
+      toast.success("📚 Livre supprimé avec succès !");
       refreshData();
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
-      toast.error("Erreur lors de la suppression du livre");
+      toast.error("❌ Erreur lors de la suppression du livre");
     }
   };
 
@@ -149,8 +138,6 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
     setSearchTerm("");
     setSelectedPlacard("all");
     setSelectedShelf("all");
-    setSelectedCategory("all");
-    setSelectedStatus("all");
     setSortBy("title");
   };
 
@@ -161,8 +148,6 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
       const params = new URLSearchParams();
       if (selectedPlacard && selectedPlacard !== "all") params.append('placard', selectedPlacard);
       if (selectedShelf && selectedShelf !== "all") params.append('shelf', selectedShelf);
-      if (selectedCategory && selectedCategory !== "all") params.append('category', selectedCategory);
-      if (selectedStatus && selectedStatus !== "all") params.append('status', selectedStatus);
 
       const response = await axios.get(`${API}/export/excel?${params.toString()}`, {
         responseType: 'blob'
@@ -171,79 +156,69 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `livres_filtrés_${new Date().getTime()}.xlsx`);
+      link.setAttribute('download', `mes_livres_${new Date().getTime()}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success("Export des livres filtrés téléchargé !");
+      toast.success("🎉 Liste de livres téléchargée !");
     } catch (error) {
       console.error("Erreur lors de l'export:", error);
-      toast.error("Erreur lors de l'export");
+      toast.error("❌ Erreur lors du téléchargement");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'disponible':
-        return 'text-green-600 bg-green-100';
-      case 'emprunté':
-        return 'text-orange-600 bg-orange-100';
-      case 'perdu':
-        return 'text-red-600 bg-red-100';
-      case 'en_maintenance':
-        return 'text-blue-600 bg-blue-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'disponible':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'emprunté':
-        return <BookOpen className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
-    }
+  // Obtenir une couleur pour un livre
+  const getBookColor = (bookId) => {
+    const index = bookId ? bookId.charCodeAt(0) % bookColors.length : 0;
+    return bookColors[index];
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestion des Livres</h1>
-          <p className="text-gray-600">
-            {filteredBooks.length} livre{filteredBooks.length > 1 ? 's' : ''} 
-            {filteredBooks.length !== books.length ? ` sur ${books.length} au total` : ''}
-          </p>
+    <div className="space-y-8 p-6">
+      {/* Header coloré et attirant */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <BookOpen className="h-12 w-12 text-blue-500 mr-3" />
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Tous Mes Livres
+          </h1>
+          <Heart className="h-8 w-8 text-red-500 ml-3" />
         </div>
-        <div className="flex space-x-3">
+        <p className="text-xl text-gray-600 mb-6">
+          🎯 {filteredBooks.length} livre{filteredBooks.length > 1 ? 's' : ''} 
+          {filteredBooks.length !== books.length ? ` sur ${books.length} au total` : ''} dans ma collection
+        </p>
+        
+        {/* Boutons d'actions colorés */}
+        <div className="flex flex-wrap justify-center gap-4">
           <Button
-            variant="outline"
+            className="button-primary hover-lift px-6 py-3 text-lg"
             onClick={handleExportFiltered}
             disabled={loading || filteredBooks.length === 0}
           >
-            <Download className="h-4 w-4 mr-2" />
-            Export
+            <Download className="h-5 w-5 mr-2" />
+            📋 Télécharger ma liste
           </Button>
+          
           <Dialog open={isISBNDialogOpen} onOpenChange={setIsISBNDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
-                <ScanLine className="h-4 w-4 mr-2" />
-                ISBN
+              <Button className="button-success hover-lift px-6 py-3 text-lg">
+                <ScanLine className="h-5 w-5 mr-2" />
+                📖 Recherche ISBN
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Recherche par ISBN</DialogTitle>
-                <DialogDescription>
-                  Recherchez un livre par son ISBN pour l'ajouter automatiquement
+                <DialogTitle className="text-2xl font-bold flex items-center">
+                  <Search className="h-6 w-6 mr-2 text-blue-600" />
+                  Ajouter un livre avec son ISBN
+                </DialogTitle>
+                <DialogDescription className="text-lg">
+                  Scannez ou tapez l'ISBN pour ajouter automatiquement un livre 📚
                 </DialogDescription>
               </DialogHeader>
               <ISBNLookup 
@@ -256,18 +231,22 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
               />
             </DialogContent>
           </Dialog>
+          
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Ajouter un livre
+              <Button className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white hover-lift px-6 py-3 text-lg">
+                <Plus className="h-5 w-5 mr-2" />
+                ✏️ Ajouter un livre
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Ajouter un nouveau livre</DialogTitle>
-                <DialogDescription>
-                  Remplissez les informations du livre à ajouter
+                <DialogTitle className="text-2xl font-bold flex items-center">
+                  <Plus className="h-6 w-6 mr-2 text-green-600" />
+                  Ajouter un nouveau livre
+                </DialogTitle>
+                <DialogDescription className="text-lg">
+                  Remplissez les informations de votre livre 📝
                 </DialogDescription>
               </DialogHeader>
               <BookForm
@@ -283,31 +262,31 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
         </div>
       </div>
 
-      {/* Filtres et recherche */}
-      <Card>
+      {/* Filtres simplifiés et colorés */}
+      <Card className="library-card hover-lift">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             {/* Barre de recherche */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-purple-400" />
               <Input
-                placeholder="Rechercher un livre..."
+                placeholder="🔍 Rechercher un livre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="form-input pl-12 text-lg"
               />
             </div>
 
             {/* Filtre par placard */}
             <Select value={selectedPlacard} onValueChange={setSelectedPlacard}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tous les placards" />
+              <SelectTrigger className="form-input text-lg">
+                <SelectValue placeholder="📁 Tous les placards" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les placards</SelectItem>
+                <SelectItem value="all">📁 Tous les placards</SelectItem>
                 {placards.map(placard => (
                   <SelectItem key={placard.id} value={placard.name}>
-                    Placard {placard.name}
+                    🗄️ Placard {placard.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -315,143 +294,124 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
 
             {/* Filtre par étagère */}
             <Select value={selectedShelf} onValueChange={setSelectedShelf}>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les étagères" />
+              <SelectTrigger className="form-input text-lg">
+                <SelectValue placeholder="📚 Toutes les étagères" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les étagères</SelectItem>
+                <SelectItem value="all">📚 Toutes les étagères</SelectItem>
                 {shelves
                   .filter(shelf => selectedPlacard === "" || selectedPlacard === "all" || shelf.placard_name === selectedPlacard)
                   .map(shelf => (
                     <SelectItem key={shelf.id} value={shelf.name}>
-                      Étagère {shelf.name}
+                      📋 Étagère {shelf.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
 
-            {/* Filtre par catégorie */}
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Toutes les catégories" />
+            {/* Tri */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="form-input text-lg">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
+                <SelectItem value="title">📖 Par titre</SelectItem>
+                <SelectItem value="author">✍️ Par auteur</SelectItem>
+                <SelectItem value="date_added">🆕 Plus récents</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              {/* Filtre par statut */}
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Tous les statuts" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  {statuses.map(status => (
-                    <SelectItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Tri */}
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="title">Titre</SelectItem>
-                  <SelectItem value="author">Auteur</SelectItem>
-                  <SelectItem value="category">Catégorie</SelectItem>
-                  <SelectItem value="date_added">Date d'ajout</SelectItem>
-                  <SelectItem value="last_modified">Dernière modif.</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button variant="outline" onClick={resetFilters}>
-              <Filter className="h-4 w-4 mr-2" />
-              Réinitialiser
+          <div className="flex justify-center">
+            <Button 
+              onClick={resetFilters}
+              className="button-primary hover-lift"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              ✨ Tout afficher
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tableau des livres */}
-      <Card>
+      {/* Tableau des livres simplifié et coloré */}
+      <Card className="library-card hover-lift">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Auteur</TableHead>
-                  <TableHead>Édition</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead>Emplacement</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Exemplaires</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-gradient-to-r from-purple-100 to-pink-100">
+                  <TableHead className="text-lg font-bold text-purple-800">📚 Livre</TableHead>
+                  <TableHead className="text-lg font-bold text-purple-800">✍️ Auteur</TableHead>
+                  <TableHead className="text-lg font-bold text-purple-800">📍 Emplacement</TableHead>
+                  <TableHead className="text-lg font-bold text-purple-800">📊 Exemplaires</TableHead>
+                  <TableHead className="text-lg font-bold text-purple-800 text-right">⚙️ Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBooks.map((book) => (
-                  <TableRow key={book.id} data-testid={`book-row-${book.id}`}>
-                    <TableCell className="font-medium">
-                      <div>
-                        <div className="font-semibold">{book.title}</div>
-                        {book.isbn && (
-                          <div className="text-xs text-gray-500">ISBN: {book.isbn}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{book.author}</TableCell>
-                    <TableCell>{book.edition || '-'}</TableCell>
+                {filteredBooks.map((book, index) => (
+                  <TableRow 
+                    key={book.id} 
+                    data-testid={`book-row-${book.id}`}
+                    className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                  >
                     <TableCell>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {book.category || 'Général'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>Placard {book.placard}</div>
-                        <div className="text-gray-500">Étagère {book.shelf}</div>
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-4 h-12 rounded ${getBookColor(book.id)} book-hover`} />
+                        <div>
+                          <div className="font-bold text-lg text-gray-800">{book.title}</div>
+                          {book.edition && (
+                            <div className="text-sm text-purple-600">📖 {book.edition}</div>
+                          )}
+                          {book.isbn && (
+                            <div className="text-xs text-gray-500">🔢 ISBN: {book.isbn}</div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(book.status)}`}>
-                        {getStatusIcon(book.status)}
-                        <span className="ml-1">{book.status}</span>
-                      </span>
+                      <div className="flex items-center">
+                        <Star className="h-4 w-4 text-yellow-500 mr-2" />
+                        <span className="font-semibold text-lg">{book.author}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center">{book.count}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center">
+                          <span className="badge-blue px-3 py-1 rounded-full text-sm">
+                            🗄️ Placard {book.placard}
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="badge-green px-3 py-1 rounded-full text-sm">
+                            📋 Étagère {book.shelf}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="text-3xl font-bold text-purple-600">{book.count}</div>
+                      <div className="text-sm text-gray-500">exemplaire{book.count > 1 ? 's' : ''}</div>
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Button
-                          variant="ghost"
                           size="sm"
                           onClick={() => handleEditBook(book)}
+                          className="button-success hover-lift"
                           data-testid={`edit-book-${book.id}`}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4 mr-1" />
+                          ✏️
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteBook(book.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover-lift"
                           data-testid={`delete-book-${book.id}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          🗑️
                         </Button>
                       </div>
                     </TableCell>
@@ -462,12 +422,18 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
           </div>
           
           {filteredBooks.length === 0 && (
-            <div className="text-center py-12">
-              <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">
+            <div className="text-center py-16">
+              <BookOpen className="h-20 w-20 text-purple-300 mx-auto mb-6" />
+              <h3 className="text-2xl font-bold text-gray-600 mb-2">
                 {books.length === 0 
-                  ? "Aucun livre dans la bibliothèque" 
-                  : "Aucun livre ne correspond aux critères de recherche"
+                  ? "Aucun livre dans votre bibliothèque" 
+                  : "Aucun livre ne correspond à votre recherche"
+                }
+              </h3>
+              <p className="text-lg text-gray-500">
+                {books.length === 0 
+                  ? "Commencez par ajouter votre premier livre ! 📚" 
+                  : "Essayez de modifier vos filtres de recherche 🔍"
                 }
               </p>
             </div>
@@ -477,11 +443,14 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
 
       {/* Dialog pour modifier un livre */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Modifier le livre</DialogTitle>
-            <DialogDescription>
-              Modifiez les informations du livre
+            <DialogTitle className="text-2xl font-bold flex items-center">
+              <Edit className="h-6 w-6 mr-2 text-blue-600" />
+              Modifier le livre
+            </DialogTitle>
+            <DialogDescription className="text-lg">
+              Modifiez les informations de votre livre ✏️
             </DialogDescription>
           </DialogHeader>
           {selectedBook && (
