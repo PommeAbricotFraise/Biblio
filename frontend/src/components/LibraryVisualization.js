@@ -82,7 +82,7 @@ const LibraryVisualization = ({ refreshData }) => {
         </div>
         
         <div 
-          className="shelf-container p-4 min-h-[120px]"
+          className="shelf-container p-4 min-h-[140px]"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
         >
           {books.length === 0 ? (
@@ -98,10 +98,15 @@ const LibraryVisualization = ({ refreshData }) => {
                   className="relative group hover-lift"
                   title={`${book.title} - ${book.author} (${book.count} ex.)`}
                 >
-                  {/* Représentation visuelle du livre */}
+                  {/* Représentation visuelle du livre avec titre */}
                   <div
-                    className={`w-8 h-20 rounded-lg shadow-lg border-2 border-white cursor-pointer transition-all duration-300 hover:scale-110 ${getBookColor(book.id)}`}
+                    className={`w-16 h-24 rounded-lg shadow-lg border-2 border-white cursor-pointer transition-all duration-300 hover:scale-110 ${getBookColor(book.id)} flex items-center justify-center text-center p-1 overflow-hidden`}
                   >
+                    {/* Titre du livre dans le rectangle */}
+                    <div className="text-white text-xs font-bold leading-tight break-words">
+                      {book.title.length > 20 ? book.title.substring(0, 18) + '...' : book.title}
+                    </div>
+                    
                     {/* Indication du nombre d'exemplaires */}
                     {book.count > 1 && (
                       <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg">
