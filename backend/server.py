@@ -215,8 +215,7 @@ async def load_initial_data():
                     edition=book_data.get('edition', ''),
                     count=int(book_data.get('count', 1)),
                     placard=book_data['placard'],
-                    shelf=book_data['shelf'],
-                    category="Littérature" if any(word in book_data['title'].lower() for word in ['fable', 'poème', 'conte']) else "Général"
+                    shelf=book_data['shelf']
                 )
                 await db.books.insert_one(book.dict())
         
