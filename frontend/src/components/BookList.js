@@ -85,12 +85,12 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
     }
 
     // Filtrage par placard
-    if (selectedPlacard && selectedPlacard !== "all") {
+    if (selectedPlacard) {
       filtered = filtered.filter(book => book.placard === selectedPlacard);
     }
 
     // Filtrage par étagère
-    if (selectedShelf && selectedShelf !== "all") {
+    if (selectedShelf) {
       filtered = filtered.filter(book => book.shelf === selectedShelf);
     }
 
