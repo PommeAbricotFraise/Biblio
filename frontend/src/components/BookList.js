@@ -304,7 +304,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                 <SelectValue placeholder="Tous les placards" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les placards</SelectItem>
+                <SelectItem value="all">Tous les placards</SelectItem>
                 {placards.map(placard => (
                   <SelectItem key={placard.id} value={placard.name}>
                     Placard {placard.name}
@@ -319,9 +319,9 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                 <SelectValue placeholder="Toutes les étagères" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes les étagères</SelectItem>
+                <SelectItem value="all">Toutes les étagères</SelectItem>
                 {shelves
-                  .filter(shelf => !selectedPlacard || shelf.placard_name === selectedPlacard)
+                  .filter(shelf => selectedPlacard === "" || selectedPlacard === "all" || shelf.placard_name === selectedPlacard)
                   .map(shelf => (
                     <SelectItem key={shelf.id} value={shelf.name}>
                       Étagère {shelf.name}
@@ -336,7 +336,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                 <SelectValue placeholder="Toutes les catégories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Toutes les catégories</SelectItem>
+                <SelectItem value="all">Toutes les catégories</SelectItem>
                 {categories.map(category => (
                   <SelectItem key={category} value={category}>
                     {category}
