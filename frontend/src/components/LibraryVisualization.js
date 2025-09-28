@@ -280,25 +280,27 @@ const LibraryVisualization = ({ refreshData }) => {
             <CardHeader>
               <CardTitle className="text-xl font-bold text-purple-800">🌈 Légende</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div>
-                <h4 className="font-bold mb-3 text-gray-700">Couleurs des livres :</h4>
-                <div className="space-y-2">
-                  {bookColors.map((colorClass, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <div className={`w-6 h-6 rounded ${colorClass} border border-gray-300`} />
-                      <span className="text-sm text-gray-600">Livres colorés aléatoirement 🎨</span>
-                    </div>
-                  ))}
+                <h4 className="font-bold mb-3 text-gray-700">📚 Informations :</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-gradient-to-r from-blue-400 to-blue-600 rounded" />
+                    <span>Chaque rectangle = 1 livre</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">2</div>
+                    <span>Chiffre rouge = nombre d'exemplaires</span>
+                  </div>
                 </div>
               </div>
               
               <div className="border-t-2 border-purple-200 pt-4">
-                <h4 className="font-bold mb-2 text-gray-700">📊 Astuces :</h4>
+                <h4 className="font-bold mb-2 text-gray-700">💡 Astuces :</h4>
                 <div className="space-y-2 text-sm text-gray-600">
-                  <div>• Survolez les livres pour plus d'infos</div>
-                  <div>• Les chiffres rouges = nombre d'exemplaires</div>
-                  <div>• Utilisez le zoom en vue 3D</div>
+                  <div>• Survolez un livre pour plus d'informations</div>
+                  <div>• Le titre du livre est affiché dans le rectangle</div>
+                  <div>• Utilisez le zoom pour mieux voir</div>
                 </div>
               </div>
             </CardContent>
