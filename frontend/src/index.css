@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Variables CSS personnalisées - Thème coloré et attractif */
 :root {
   --background: 0 0% 100%;
