@@ -84,22 +84,22 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
     }
 
     // Filtrage par placard
-    if (selectedPlacard) {
+    if (selectedPlacard && selectedPlacard !== "all") {
       filtered = filtered.filter(book => book.placard === selectedPlacard);
     }
 
     // Filtrage par étagère
-    if (selectedShelf) {
+    if (selectedShelf && selectedShelf !== "all") {
       filtered = filtered.filter(book => book.shelf === selectedShelf);
     }
 
     // Filtrage par catégorie
-    if (selectedCategory) {
+    if (selectedCategory && selectedCategory !== "all") {
       filtered = filtered.filter(book => book.category === selectedCategory);
     }
 
     // Filtrage par statut
-    if (selectedStatus) {
+    if (selectedStatus && selectedStatus !== "all") {
       filtered = filtered.filter(book => book.status === selectedStatus);
     }
 
