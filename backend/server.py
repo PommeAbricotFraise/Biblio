@@ -125,8 +125,6 @@ class LibraryStats(BaseModel):
     total_books: int
     total_placards: int
     total_shelves: int
-    books_by_category: Dict[str, int]
-    books_by_status: Dict[str, int]
     books_by_placard: Dict[str, int]
     recent_additions: int
     top_authors: List[Dict[str, Any]]
@@ -440,22 +438,6 @@ async def get_library_stats():
     total_placards = await db.placards.count_documents({})
     total_shelves = await db.shelves.count_documents({})
     
-    # Books by category
-    category_pipeline = [
-        {"$group": {"_id": "$category", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    category_results = await db.books.aggregate(category_pipeline).to_list(None)
-    books_by_category = {item["_id"] or "Non catégorisé": item["count"] for item in category_results}
-    
-    # Books by status
-    status_pipeline = [
-        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}}
-    ]
-    status_results = await db.books.aggregate(status_pipeline).to_list(None)
-    books_by_status = {item["_id"]: item["count"] for item in status_results}
-    
     # Books by placard
     placard_pipeline = [
         {"$group": {"_id": "$placard", "count": {"$sum": 1}}},
@@ -482,8 +464,6 @@ async def get_library_stats():
         total_books=total_books,
         total_placards=total_placards,
         total_shelves=total_shelves,
-        books_by_category=books_by_category,
-        books_by_status=books_by_status,
         books_by_placard=books_by_placard,
         recent_additions=recent_additions,
         top_authors=top_authors
