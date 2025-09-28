@@ -10,7 +10,8 @@ import {
   Book, 
   Eye,
   Grid3x3,
-  BarChart3
+  Sparkles,
+  Heart
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -25,24 +26,15 @@ const LibraryVisualization = ({ refreshData }) => {
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState('visual'); // 'visual' ou 'grid'
 
-  // Couleurs pour les catégories de livres
-  const categoryColors = {
-    'Littérature': '#3B82F6',     // Bleu
-    'Science': '#10B981',         // Vert
-    'Histoire': '#F59E0B',        // Orange
-    'Art': '#8B5CF6',             // Violet
-    'Jeunesse': '#EF4444',        // Rouge
-    'BD/Comics': '#06B6D4',       // Cyan
-    'Général': '#6B7280',         // Gris
-  };
-
-  // Couleurs pour les statuts
-  const statusColors = {
-    'disponible': '#10B981',      // Vert
-    'emprunté': '#F59E0B',        // Orange
-    'perdu': '#EF4444',           // Rouge
-    'en_maintenance': '#6B7280'   // Gris
-  };
+  // Couleurs attrayantes pour les livres (plus de variété)
+  const bookColors = [
+    'book-blue',    // Bleu
+    'book-green',   // Vert
+    'book-pink',    // Rose
+    'book-orange',  // Orange
+    'book-purple',  // Violet
+    'book-red',     // Rouge
+  ];
 
   // Charger les données de visualisation
   const fetchVisualizationData = async () => {
@@ -58,7 +50,7 @@ const LibraryVisualization = ({ refreshData }) => {
       }
     } catch (error) {
       console.error("Erreur lors du chargement de la visualisation:", error);
-      toast.error("Erreur lors du chargement de la visualisation");
+      toast.error("❌ Erreur lors du chargement de la visualisation");
     } finally {
       setLoading(false);
     }
@@ -68,68 +60,62 @@ const LibraryVisualization = ({ refreshData }) => {
     fetchVisualizationData();
   }, []);
 
-  // Obtenir la couleur d'un livre selon sa catégorie
-  const getBookColor = (book, colorBy = 'category') => {
-    if (colorBy === 'status') {
-      return statusColors[book.status] || statusColors['disponible'];
-    }
-    return categoryColors[book.category] || categoryColors['Général'];
+  // Obtenir la couleur d'un livre aléatoirement
+  const getBookColor = (bookId) => {
+    const index = bookId ? bookId.charCodeAt(0) % bookColors.length : 0;
+    return bookColors[index];
   };
 
   // Rendu d'une étagère en mode visuel
   const renderShelfVisual = (shelf, shelfData) => {
-    const maxBooksPerRow = 20;
     const books = shelfData.books || [];
     
     return (
-      <div key={shelf} className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-medium text-gray-800">
-            Étagère {shelf}
-            <span className="ml-2 text-sm text-gray-500">
-              ({shelfData.book_count} livres)
+      <div key={shelf} className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-xl font-bold text-purple-800 flex items-center">
+            📋 Étagère {shelf}
+            <span className="ml-3 text-lg text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+              {shelfData.book_count} livre{shelfData.book_count > 1 ? 's' : ''}
             </span>
           </h4>
         </div>
         
         <div 
-          className="border-2 border-gray-300 rounded-lg p-3 bg-gradient-to-b from-gray-50 to-gray-100 min-h-[80px]"
+          className="shelf-container p-4 min-h-[120px]"
           style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
         >
           {books.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400">
-              <span>Étagère vide</span>
+            <div className="flex items-center justify-center h-full text-gray-500 text-lg">
+              <Book className="h-8 w-8 mr-2" />
+              <span>Étagère vide - Prête pour de nouveaux livres ! 📚</span>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-2">
               {books.map((book, index) => (
                 <div
                   key={`${book.id}-${index}`}
-                  className="relative group"
+                  className="relative group hover-lift"
                   title={`${book.title} - ${book.author} (${book.count} ex.)`}
                 >
                   {/* Représentation visuelle du livre */}
                   <div
-                    className="w-6 h-16 rounded-sm shadow-sm border border-gray-400 cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-110"
-                    style={{
-                      backgroundColor: getBookColor(book),
-                      background: `linear-gradient(to bottom, ${getBookColor(book)}, ${getBookColor(book)}dd)`
-                    }}
+                    className={`w-8 h-20 rounded-lg shadow-lg border-2 border-white cursor-pointer transition-all duration-300 hover:scale-110 ${getBookColor(book.id)}`}
                   >
                     {/* Indication du nombre d'exemplaires */}
                     {book.count > 1 && (
-                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center text-[10px]">
+                      <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg">
                         {book.count}
                       </div>
                     )}
                   </div>
                   
                   {/* Tooltip au survol */}
-                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap">
-                    <div className="font-semibold">{book.title}</div>
-                    <div>par {book.author}</div>
-                    <div className="text-gray-300">{book.count} exemplaire{book.count > 1 ? 's' : ''}</div>
-                    <div className="text-gray-300 capitalize">{book.status}</div>
+                  <div className="absolute bottom-full mb-3 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20 whitespace-nowrap shadow-xl">
+                    <div className="font-bold text-yellow-300">📖 {book.title}</div>
+                    <div className="text-blue-200">✍️ par {book.author}</div>
+                    <div className="text-green-200">📊 {book.count} exemplaire{book.count > 1 ? 's' : ''}</div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                   </div>
                 </div>
               ))}
@@ -145,41 +131,37 @@ const LibraryVisualization = ({ refreshData }) => {
     const books = shelfData.books || [];
     
     return (
-      <Card key={shelf} className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center justify-between">
-            <span>Étagère {shelf}</span>
-            <span className="text-sm font-normal text-gray-500">
-              {shelfData.book_count} livres
+      <Card key={shelf} className="library-card hover-lift mb-6">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl flex items-center justify-between">
+            <span className="flex items-center">
+              📋 <span className="text-purple-700 ml-2">Étagère {shelf}</span>
+            </span>
+            <span className="text-lg font-normal bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full">
+              {shelfData.book_count} livre{shelfData.book_count > 1 ? 's' : ''}
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {books.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Étagère vide</p>
+            <div className="text-center py-8">
+              <Book className="h-16 w-16 text-purple-300 mx-auto mb-4" />
+              <p className="text-lg text-gray-500">Cette étagère attend de nouveaux livres ! 📚</p>
+            </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {books.map((book) => (
-                <div key={book.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <div className="flex items-center space-x-3">
-                    <div 
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: getBookColor(book) }}
-                    />
+                <div key={book.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl hover-lift">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-6 h-6 rounded-full ${getBookColor(book.id)}`} />
                     <div>
-                      <div className="font-medium">{book.title}</div>
-                      <div className="text-sm text-gray-500">{book.author}</div>
+                      <div className="font-bold text-lg text-gray-800">📖 {book.title}</div>
+                      <div className="text-gray-600">✍️ {book.author}</div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3 text-sm">
-                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      {book.category}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-white`} 
-                          style={{ backgroundColor: statusColors[book.status] }}>
-                      {book.status}
-                    </span>
-                    <span className="font-medium">{book.count} ex.</span>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-purple-600">{book.count}</div>
+                    <div className="text-sm text-gray-500">exemplaire{book.count > 1 ? 's' : ''}</div>
                   </div>
                 </div>
               ))}
@@ -194,8 +176,8 @@ const LibraryVisualization = ({ refreshData }) => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          <p className="mt-2 text-gray-500">Chargement de la visualisation...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-xl font-semibold text-gray-700">Chargement de votre plan de bibliothèque...</p>
         </div>
       </div>
     );
@@ -203,10 +185,10 @@ const LibraryVisualization = ({ refreshData }) => {
 
   if (!visualizationData || Object.keys(visualizationData).length === 0) {
     return (
-      <div className="text-center py-12">
-        <Archive className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune donnée de visualisation</h3>
-        <p className="text-gray-500">La bibliothèque semble être vide.</p>
+      <div className="text-center py-16">
+        <Archive className="h-24 w-24 text-purple-300 mx-auto mb-6" />
+        <h3 className="text-2xl font-bold text-gray-700 mb-4">Aucune donnée de visualisation</h3>
+        <p className="text-xl text-gray-500">Votre bibliothèque semble être vide. Ajoutez des livres pour voir la visualisation ! 📚</p>
       </div>
     );
   }
@@ -214,109 +196,104 @@ const LibraryVisualization = ({ refreshData }) => {
   const currentPlacardData = selectedPlacard ? visualizationData[selectedPlacard] : null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Visualisation de la Bibliothèque</h1>
-          <p className="text-gray-600">Plan interactif et organisation spatiale</p>
+    <div className="space-y-8 p-6">
+      {/* Header coloré et attirant */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <Layout className="h-12 w-12 text-purple-600 mr-3" />
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            Plan de Ma Bibliothèque
+          </h1>
+          <Sparkles className="h-10 w-10 text-yellow-500 ml-3" />
         </div>
-        <div className="flex space-x-2">
+        <p className="text-xl text-gray-600">Découvrez où se trouvent tous vos livres ! 🗺️</p>
+        
+        <div className="flex flex-wrap justify-center gap-4 mt-6">
           <Button
-            variant={viewMode === 'visual' ? 'default' : 'outline'}
+            className={`hover-lift px-6 py-3 text-lg ${viewMode === 'visual' ? 'button-primary' : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'}`}
             onClick={() => setViewMode('visual')}
-            size="sm"
           >
-            <Eye className="h-4 w-4 mr-2" />
-            Vue 3D
+            <Eye className="h-5 w-5 mr-2" />
+            🎨 Vue 3D
           </Button>
           <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            className={`hover-lift px-6 py-3 text-lg ${viewMode === 'grid' ? 'button-primary' : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'}`}
             onClick={() => setViewMode('grid')}
-            size="sm"
           >
-            <Grid3x3 className="h-4 w-4 mr-2" />
-            Liste
+            <Grid3x3 className="h-5 w-5 mr-2" />
+            📝 Vue Liste
           </Button>
           <Button 
             onClick={fetchVisualizationData}
-            variant="outline"
-            size="sm"
+            className="button-success hover-lift px-6 py-3 text-lg"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualiser
+            <RefreshCw className="h-5 w-5 mr-2" />
+            🔄 Actualiser
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sélecteur de placard */}
         <div className="lg:col-span-1">
-          <Card>
+          <Card className="library-card hover-lift">
             <CardHeader>
-              <CardTitle className="text-lg">Placards</CardTitle>
+              <CardTitle className="text-xl font-bold text-purple-800 flex items-center">
+                <Archive className="h-6 w-6 mr-2" />
+                🗄️ Mes Placards
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-4">
               {Object.entries(visualizationData).map(([placardName, placardData]) => (
                 <button
                   key={placardName}
                   onClick={() => setSelectedPlacard(placardName)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 hover-lift ${
                     selectedPlacard === placardName
-                      ? 'bg-blue-50 border-blue-200 text-blue-900'
-                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white border-purple-400 shadow-lg'
+                      : 'bg-gradient-to-r from-blue-50 to-purple-50 border-purple-200 hover:from-purple-100 hover:to-pink-100'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Archive className="h-4 w-4" />
-                      <span className="font-medium">Placard {placardName}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      <Archive className="h-6 w-6" />
+                      <span className="font-bold text-lg">Placard {placardName}</span>
                     </div>
-                    <span className="text-sm text-gray-500">
-                      {placardData.total_books} livres
-                    </span>
+                    <Heart className="h-5 w-5 text-red-400" />
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {Object.keys(placardData.shelves || {}).length} étagères
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>📚 {placardData.total_books} livres</div>
+                    <div>📋 {Object.keys(placardData.shelves || {}).length} étagères</div>
                   </div>
                 </button>
               ))}
             </CardContent>
           </Card>
 
-          {/* Légende */}
-          <Card className="mt-4">
+          {/* Légende simplifiée */}
+          <Card className="library-card hover-lift mt-6">
             <CardHeader>
-              <CardTitle className="text-lg">Légende</CardTitle>
+              <CardTitle className="text-xl font-bold text-purple-800">🌈 Légende</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <h4 className="font-medium mb-2">Par catégorie</h4>
-                <div className="space-y-1">
-                  {Object.entries(categoryColors).map(([category, color]) => (
-                    <div key={category} className="flex items-center space-x-2">
-                      <div 
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="text-sm">{category}</span>
+                <h4 className="font-bold mb-3 text-gray-700">Couleurs des livres :</h4>
+                <div className="space-y-2">
+                  {bookColors.map((colorClass, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <div className={`w-6 h-6 rounded ${colorClass} border border-gray-300`} />
+                      <span className="text-sm text-gray-600">Livres colorés aléatoirement 🎨</span>
                     </div>
                   ))}
                 </div>
               </div>
               
-              <div className="border-t pt-3">
-                <h4 className="font-medium mb-2">Par statut</h4>
-                <div className="space-y-1">
-                  {Object.entries(statusColors).map(([status, color]) => (
-                    <div key={status} className="flex items-center space-x-2">
-                      <div 
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="text-sm capitalize">{status}</span>
-                    </div>
-                  ))}
+              <div className="border-t-2 border-purple-200 pt-4">
+                <h4 className="font-bold mb-2 text-gray-700">📊 Astuces :</h4>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <div>• Survolez les livres pour plus d'infos</div>
+                  <div>• Les chiffres rouges = nombre d'exemplaires</div>
+                  <div>• Utilisez le zoom en vue 3D</div>
                 </div>
               </div>
             </CardContent>
@@ -326,34 +303,35 @@ const LibraryVisualization = ({ refreshData }) => {
         {/* Visualisation principale */}
         <div className="lg:col-span-3">
           {currentPlacardData ? (
-            <Card>
+            <Card className="library-card hover-lift">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between">
                   <div>
-                    <CardTitle className="flex items-center">
-                      <Archive className="h-5 w-5 mr-2" />
-                      Placard {selectedPlacard}
+                    <CardTitle className="text-2xl font-bold flex items-center text-purple-800">
+                      <Archive className="h-8 w-8 mr-3" />
+                      🗄️ Placard {selectedPlacard}
                     </CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {currentPlacardData.total_books} livres répartis sur {Object.keys(currentPlacardData.shelves || {}).length} étagères
+                    <p className="text-lg text-gray-600 mt-2">
+                      📚 {currentPlacardData.total_books} livres répartis sur {Object.keys(currentPlacardData.shelves || {}).length} étagère{Object.keys(currentPlacardData.shelves || {}).length > 1 ? 's' : ''}
                     </p>
                   </div>
                   
                   {viewMode === 'visual' && (
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-3 mt-4 lg:mt-0">
                       <Button
-                        variant="outline"
-                        size="sm"
                         onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
                         disabled={zoom <= 0.5}
+                        className="button-success"
                       >
                         <ZoomOut className="h-4 w-4" />
                       </Button>
+                      <span className="flex items-center text-lg font-semibold text-purple-600">
+                        🔍 {Math.round(zoom * 100)}%
+                      </span>
                       <Button
-                        variant="outline"
-                        size="sm"
                         onClick={() => setZoom(Math.min(2, zoom + 0.25))}
                         disabled={zoom >= 2}
+                        className="button-success"
                       >
                         <ZoomIn className="h-4 w-4" />
                       </Button>
@@ -362,7 +340,7 @@ const LibraryVisualization = ({ refreshData }) => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {Object.entries(currentPlacardData.shelves || {})
                     .sort(([a], [b]) => parseInt(a) - parseInt(b))
                     .map(([shelfName, shelfData]) => 
@@ -373,69 +351,59 @@ const LibraryVisualization = ({ refreshData }) => {
                 </div>
 
                 {Object.keys(currentPlacardData.shelves || {}).length === 0 && (
-                  <div className="text-center py-12">
-                    <Book className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">Ce placard ne contient aucune étagère</p>
+                  <div className="text-center py-16">
+                    <Book className="h-20 w-20 text-purple-300 mx-auto mb-6" />
+                    <h3 className="text-2xl font-bold text-gray-600 mb-2">Ce placard est vide</h3>
+                    <p className="text-lg text-gray-500">Ajoutez des étagères et des livres pour commencer ! 📚</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Layout className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">Sélectionnez un placard pour voir sa visualisation</p>
+            <Card className="library-card hover-lift">
+              <CardContent className="py-16 text-center">
+                <Layout className="h-20 w-20 text-purple-300 mx-auto mb-6" />
+                <h3 className="text-2xl font-bold text-gray-600 mb-2">Sélectionnez un placard</h3>
+                <p className="text-lg text-gray-500">Choisissez un placard à gauche pour voir sa visualisation ! 👈</p>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
 
-      {/* Statistiques rapides */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <Archive className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Placards</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {Object.keys(visualizationData).length}
-                </p>
-              </div>
-            </div>
+      {/* Statistiques rapides colorées */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="stats-card-blue hover-lift">
+          <CardContent className="pt-6 text-center">
+            <Archive className="h-12 w-12 text-white mx-auto mb-4" />
+            <p className="text-lg font-bold opacity-90">Total Placards</p>
+            <p className="text-4xl font-bold">
+              {Object.keys(visualizationData).length}
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <BarChart3 className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Étagères</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {Object.values(visualizationData).reduce(
-                    (total, placard) => total + Object.keys(placard.shelves || {}).length, 0
-                  )}
-                </p>
-              </div>
-            </div>
+        <Card className="stats-card-green hover-lift">
+          <CardContent className="pt-6 text-center">
+            <Layout className="h-12 w-12 text-white mx-auto mb-4" />
+            <p className="text-lg font-bold opacity-90">Total Étagères</p>
+            <p className="text-4xl font-bold">
+              {Object.values(visualizationData).reduce(
+                (total, placard) => total + Object.keys(placard.shelves || {}).length, 0
+              )}
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center">
-              <Book className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Livres</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {Object.values(visualizationData).reduce(
-                    (total, placard) => total + placard.total_books, 0
-                  )}
-                </p>
-              </div>
-            </div>
+        <Card className="stats-card-purple hover-lift">
+          <CardContent className="pt-6 text-center">
+            <Book className="h-12 w-12 text-white mx-auto mb-4" />
+            <p className="text-lg font-bold opacity-90">Total Livres</p>
+            <p className="text-4xl font-bold">
+              {Object.values(visualizationData).reduce(
+                (total, placard) => total + placard.total_books, 0
+              )}
+            </p>
           </CardContent>
         </Card>
       </div>
