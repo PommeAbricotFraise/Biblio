@@ -27,7 +27,6 @@ const BookForm = ({ book = null, placards = [], shelves = [], onSuccess }) => {
     count: 1,
     placard: "",
     shelf: "",
-    category: "Général",
     description: "",
     barcode: "",
     language: "fr",
