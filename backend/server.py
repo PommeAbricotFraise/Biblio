@@ -595,8 +595,6 @@ async def get_library_visualization():
                 "id": str(book["id"]),
                 "title": book["title"],
                 "author": book["author"],
-                "category": book.get("category", "Général"),
-                "status": book["status"],
                 "count": book["count"]
             }
             visualization_data[placard_name]["shelves"][shelf_name]["books"].append(book_data)
