@@ -42,9 +42,7 @@ class Book(BaseModel):
     count: int = 1
     placard: str
     shelf: str
-    category: Optional[str] = "Général"
     description: Optional[str] = ""
-    status: str = "disponible"  # disponible, emprunté, perdu, en_maintenance
     date_added: datetime = Field(default_factory=datetime.utcnow)
     last_modified: datetime = Field(default_factory=datetime.utcnow)
     barcode: Optional[str] = ""
@@ -60,7 +58,6 @@ class BookCreate(BaseModel):
     count: int = 1
     placard: str
     shelf: str
-    category: Optional[str] = "Général"
     description: Optional[str] = ""
     barcode: Optional[str] = ""
     language: Optional[str] = "fr"
@@ -75,9 +72,7 @@ class BookUpdate(BaseModel):
     count: Optional[int] = None
     placard: Optional[str] = None
     shelf: Optional[str] = None
-    category: Optional[str] = None
     description: Optional[str] = None
-    status: Optional[str] = None
     barcode: Optional[str] = None
     language: Optional[str] = None
     pages: Optional[int] = None
