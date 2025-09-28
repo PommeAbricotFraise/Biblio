@@ -47,7 +47,6 @@ const BookForm = ({ book = null, placards = [], shelves = [], onSuccess }) => {
         count: book.count || 1,
         placard: book.placard || "",
         shelf: book.shelf || "",
-        category: book.category || "Général",
         description: book.description || "",
         barcode: book.barcode || "",
         language: book.language || "fr",
