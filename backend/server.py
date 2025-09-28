@@ -269,6 +269,371 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
+# Books endpoints
+@api_router.get("/books", response_model=List[Book])
+async def get_books(
+    skip: int = 0, 
+    limit: int = 100,
+    search: Optional[str] = Query(None),
+    placard: Optional[str] = Query(None),
+    shelf: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query("title")
+):
+    """Get all books with optional filtering and sorting"""
+    filter_query = {}
+    
+    if search:
+        filter_query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"author": {"$regex": search, "$options": "i"}},
+            {"isbn": {"$regex": search, "$options": "i"}}
+        ]
+    
+    if placard:
+        filter_query["placard"] = placard
+    
+    if shelf:
+        filter_query["shelf"] = shelf
+        
+    if category:
+        filter_query["category"] = category
+        
+    if status:
+        filter_query["status"] = status
+    
+    sort_field = sort_by if sort_by in ["title", "author", "date_added", "last_modified"] else "title"
+    
+    books = await db.books.find(filter_query).sort(sort_field, 1).skip(skip).limit(limit).to_list(limit)
+    return [Book(**book) for book in books]
+
+@api_router.post("/books", response_model=Book)
+async def create_book(book: BookCreate):
+    """Create a new book"""
+    book_dict = book.dict()
+    book_obj = Book(**book_dict)
+    await db.books.insert_one(book_obj.dict())
+    return book_obj
+
+@api_router.get("/books/{book_id}", response_model=Book)
+async def get_book(book_id: str):
+    """Get a specific book by ID"""
+    book = await db.books.find_one({"id": book_id})
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return Book(**book)
+
+@api_router.put("/books/{book_id}", response_model=Book)
+async def update_book(book_id: str, book_update: BookUpdate):
+    """Update a book"""
+    update_data = {k: v for k, v in book_update.dict().items() if v is not None}
+    update_data["last_modified"] = datetime.utcnow()
+    
+    result = await db.books.update_one({"id": book_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Book not found")
+    
+    book = await db.books.find_one({"id": book_id})
+    return Book(**book)
+
+@api_router.delete("/books/{book_id}")
+async def delete_book(book_id: str):
+    """Delete a book"""
+    result = await db.books.delete_one({"id": book_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return {"message": "Book deleted successfully"}
+
+# Placard endpoints
+@api_router.get("/placards", response_model=List[Placard])
+async def get_placards():
+    """Get all placards"""
+    placards = await db.placards.find().to_list(1000)
+    return [Placard(**placard) for placard in placards]
+
+@api_router.post("/placards", response_model=Placard)
+async def create_placard(placard: PlacardCreate):
+    """Create a new placard"""
+    placard_dict = placard.dict()
+    placard_obj = Placard(**placard_dict)
+    await db.placards.insert_one(placard_obj.dict())
+    return placard_obj
+
+@api_router.delete("/placards/{placard_id}")
+async def delete_placard(placard_id: str):
+    """Delete a placard and all its books"""
+    placard = await db.placards.find_one({"id": placard_id})
+    if not placard:
+        raise HTTPException(status_code=404, detail="Placard not found")
+    
+    # Delete all books in this placard
+    await db.books.delete_many({"placard": placard["name"]})
+    # Delete all shelves in this placard
+    await db.shelves.delete_many({"placard_name": placard["name"]})
+    # Delete the placard
+    await db.placards.delete_one({"id": placard_id})
+    
+    return {"message": "Placard and all associated data deleted successfully"}
+
+# Shelf endpoints
+@api_router.get("/shelves", response_model=List[Shelf])
+async def get_shelves(placard_name: Optional[str] = Query(None)):
+    """Get all shelves, optionally filtered by placard"""
+    filter_query = {}
+    if placard_name:
+        filter_query["placard_name"] = placard_name
+    
+    shelves = await db.shelves.find(filter_query).sort("position", 1).to_list(1000)
+    return [Shelf(**shelf) for shelf in shelves]
+
+@api_router.post("/shelves", response_model=Shelf)
+async def create_shelf(shelf: ShelfCreate):
+    """Create a new shelf"""
+    shelf_dict = shelf.dict()
+    shelf_obj = Shelf(**shelf_dict)
+    await db.shelves.insert_one(shelf_obj.dict())
+    return shelf_obj
+
+@api_router.delete("/shelves/{shelf_id}")
+async def delete_shelf(shelf_id: str):
+    """Delete a shelf and all its books"""
+    shelf = await db.shelves.find_one({"id": shelf_id})
+    if not shelf:
+        raise HTTPException(status_code=404, detail="Shelf not found")
+    
+    # Delete all books on this shelf
+    await db.books.delete_many({"shelf": shelf["name"], "placard": shelf["placard_name"]})
+    # Delete the shelf
+    await db.shelves.delete_one({"id": shelf_id})
+    
+    return {"message": "Shelf and all associated books deleted successfully"}
+
+# ISBN lookup endpoints
+@api_router.get("/isbn/{isbn}", response_model=ISBNInfo)
+async def lookup_isbn(isbn: str):
+    """Look up book information by ISBN"""
+    # Try Google Books first
+    book_info = fetch_book_by_google_books(isbn)
+    if book_info:
+        return book_info
+    
+    # Try Open Library if Google Books fails
+    book_info = fetch_book_by_open_library(isbn)
+    if book_info:
+        return book_info
+    
+    raise HTTPException(status_code=404, detail="No book information found for this ISBN")
+
+@api_router.post("/books/from-isbn/{isbn}", response_model=Book)
+async def create_book_from_isbn(isbn: str, placard: str, shelf: str):
+    """Create a book from ISBN lookup"""
+    book_info = await lookup_isbn(isbn)
+    
+    book_create = BookCreate(
+        title=book_info.title or "Titre inconnu",
+        author=", ".join(book_info.authors) if book_info.authors else "Auteur inconnu",
+        edition=book_info.publisher or "",
+        isbn=isbn,
+        placard=placard,
+        shelf=shelf,
+        description=book_info.description or "",
+        pages=book_info.page_count,
+        category=book_info.categories[0] if book_info.categories else "Général",
+        language=book_info.language or "fr"
+    )
+    
+    return await create_book(book_create)
+
+# Statistics endpoint
+@api_router.get("/stats", response_model=LibraryStats)
+async def get_library_stats():
+    """Get library statistics"""
+    total_books = await db.books.count_documents({})
+    total_placards = await db.placards.count_documents({})
+    total_shelves = await db.shelves.count_documents({})
+    
+    # Books by category
+    category_pipeline = [
+        {"$group": {"_id": "$category", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    category_results = await db.books.aggregate(category_pipeline).to_list(None)
+    books_by_category = {item["_id"] or "Non catégorisé": item["count"] for item in category_results}
+    
+    # Books by status
+    status_pipeline = [
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    status_results = await db.books.aggregate(status_pipeline).to_list(None)
+    books_by_status = {item["_id"]: item["count"] for item in status_results}
+    
+    # Books by placard
+    placard_pipeline = [
+        {"$group": {"_id": "$placard", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    placard_results = await db.books.aggregate(placard_pipeline).to_list(None)
+    books_by_placard = {item["_id"]: item["count"] for item in placard_results}
+    
+    # Recent additions (last 7 days)
+    from datetime import timedelta
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    recent_additions = await db.books.count_documents({"date_added": {"$gte": seven_days_ago}})
+    
+    # Top authors
+    author_pipeline = [
+        {"$group": {"_id": "$author", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    author_results = await db.books.aggregate(author_pipeline).to_list(None)
+    top_authors = [{"author": item["_id"], "count": item["count"]} for item in author_results]
+    
+    return LibraryStats(
+        total_books=total_books,
+        total_placards=total_placards,
+        total_shelves=total_shelves,
+        books_by_category=books_by_category,
+        books_by_status=books_by_status,
+        books_by_placard=books_by_placard,
+        recent_additions=recent_additions,
+        top_authors=top_authors
+    )
+
+# Export endpoints
+@api_router.get("/export/excel")
+async def export_books_excel(
+    placard: Optional[str] = Query(None),
+    shelf: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    status: Optional[str] = Query(None)
+):
+    """Export books to Excel file"""
+    filter_query = {}
+    
+    if placard:
+        filter_query["placard"] = placard
+    if shelf:
+        filter_query["shelf"] = shelf
+    if category:
+        filter_query["category"] = category
+    if status:
+        filter_query["status"] = status
+    
+    books = await db.books.find(filter_query).sort("title", 1).to_list(None)
+    
+    # Convert to pandas DataFrame
+    df_data = []
+    for book in books:
+        df_data.append({
+            "Titre": book["title"],
+            "Auteur": book["author"],
+            "Edition": book["edition"],
+            "ISBN": book.get("isbn", ""),
+            "Placard": book["placard"],
+            "Étagère": book["shelf"],
+            "Catégorie": book.get("category", ""),
+            "Statut": book["status"],
+            "Nombre": book["count"],
+            "Pages": book.get("pages", ""),
+            "Langue": book.get("language", ""),
+            "Date d'ajout": book["date_added"].strftime("%d/%m/%Y %H:%M") if "date_added" in book else "",
+            "Description": book.get("description", "")
+        })
+    
+    df = pd.DataFrame(df_data)
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Livres', index=False)
+        
+        # Add a summary sheet
+        stats = await get_library_stats()
+        summary_data = [
+            ["Total des livres", stats.total_books],
+            ["Total des placards", stats.total_placards],
+            ["Total des étagères", stats.total_shelves],
+            ["", ""],
+            ["Livres par statut", ""],
+        ]
+        
+        for status, count in stats.books_by_status.items():
+            summary_data.append([f"  {status}", count])
+        
+        summary_data.extend([
+            ["", ""],
+            ["Livres par catégorie", ""],
+        ])
+        
+        for category, count in stats.books_by_category.items():
+            summary_data.append([f"  {category}", count])
+        
+        summary_df = pd.DataFrame(summary_data, columns=["Statistique", "Valeur"])
+        summary_df.to_excel(writer, sheet_name='Statistiques', index=False)
+    
+    output.seek(0)
+    
+    # Generate filename with current date
+    filename = f"bibliotheque_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    return StreamingResponse(
+        io.BytesIO(output.read()),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# Library visualization endpoint
+@api_router.get("/visualization")
+async def get_library_visualization():
+    """Get data for library visualization"""
+    placards = await db.placards.find().to_list(None)
+    shelves = await db.shelves.find().sort("position", 1).to_list(None)
+    books = await db.books.find().to_list(None)
+    
+    # Organize data for visualization
+    visualization_data = {}
+    
+    for placard in placards:
+        placard_name = placard["name"]
+        visualization_data[placard_name] = {
+            "info": placard,
+            "shelves": {},
+            "total_books": 0
+        }
+    
+    # Add shelves to placards
+    for shelf in shelves:
+        placard_name = shelf["placard_name"]
+        if placard_name in visualization_data:
+            shelf_name = shelf["name"]
+            visualization_data[placard_name]["shelves"][shelf_name] = {
+                "info": shelf,
+                "books": [],
+                "book_count": 0
+            }
+    
+    # Add books to shelves
+    for book in books:
+        placard_name = book["placard"]
+        shelf_name = book["shelf"]
+        
+        if placard_name in visualization_data and shelf_name in visualization_data[placard_name]["shelves"]:
+            visualization_data[placard_name]["shelves"][shelf_name]["books"].append({
+                "id": book["id"],
+                "title": book["title"],
+                "author": book["author"],
+                "category": book.get("category", "Général"),
+                "status": book["status"],
+                "count": book["count"]
+            })
+            visualization_data[placard_name]["shelves"][shelf_name]["book_count"] += book["count"]
+            visualization_data[placard_name]["total_books"] += book["count"]
+    
+    return visualization_data
+
 # Include the router in the main app
 app.include_router(api_router)
 
