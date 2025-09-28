@@ -473,9 +473,7 @@ async def get_library_stats():
 @api_router.get("/export/excel")
 async def export_books_excel(
     placard: Optional[str] = Query(None),
-    shelf: Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
-    status: Optional[str] = Query(None)
+    shelf: Optional[str] = Query(None)
 ):
     """Export books to Excel file"""
     filter_query = {}
@@ -484,10 +482,6 @@ async def export_books_excel(
         filter_query["placard"] = placard
     if shelf:
         filter_query["shelf"] = shelf
-    if category:
-        filter_query["category"] = category
-    if status:
-        filter_query["status"] = status
     
     books = await db.books.find(filter_query).sort("title", 1).to_list(None)
     
@@ -501,10 +495,9 @@ async def export_books_excel(
             "ISBN": book.get("isbn", ""),
             "Placard": book["placard"],
             "Étagère": book["shelf"],
-            "Catégorie": book.get("category", ""),
-            "Statut": book["status"],
             "Nombre": book["count"],
             "Pages": book.get("pages", ""),
+            "Année": book.get("publication_year", ""),
             "Langue": book.get("language", ""),
             "Date d'ajout": book["date_added"].strftime("%d/%m/%Y %H:%M") if "date_added" in book else "",
             "Description": book.get("description", "")
@@ -515,36 +508,36 @@ async def export_books_excel(
     # Create Excel file in memory
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Livres', index=False)
+        df.to_excel(writer, sheet_name='Mes Livres', index=False)
         
         # Add a summary sheet
         stats = await get_library_stats()
         summary_data = [
-            ["Total des livres", stats.total_books],
-            ["Total des placards", stats.total_placards],
-            ["Total des étagères", stats.total_shelves],
+            ["📚 Total des livres", stats.total_books],
+            ["🗄️ Total des placards", stats.total_placards],
+            ["📋 Total des étagères", stats.total_shelves],
             ["", ""],
-            ["Livres par statut", ""],
+            ["📊 Livres par placard", ""],
         ]
         
-        for status, count in stats.books_by_status.items():
-            summary_data.append([f"  {status}", count])
+        for placard, count in stats.books_by_placard.items():
+            summary_data.append([f"  Placard {placard}", count])
         
         summary_data.extend([
             ["", ""],
-            ["Livres par catégorie", ""],
+            ["✍️ Auteurs populaires", ""],
         ])
         
-        for category, count in stats.books_by_category.items():
-            summary_data.append([f"  {category}", count])
+        for author in stats.top_authors[:5]:
+            summary_data.append([f"  {author['author']}", f"{author['count']} livre(s)"])
         
-        summary_df = pd.DataFrame(summary_data, columns=["Statistique", "Valeur"])
-        summary_df.to_excel(writer, sheet_name='Statistiques', index=False)
+        summary_df = pd.DataFrame(summary_data, columns=["Information", "Valeur"])
+        summary_df.to_excel(writer, sheet_name='Résumé', index=False)
     
     output.seek(0)
     
     # Generate filename with current date
-    filename = f"bibliotheque_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"ma_bibliotheque_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
     return StreamingResponse(
         io.BytesIO(output.read()),
