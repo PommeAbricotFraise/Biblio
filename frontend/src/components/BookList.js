@@ -283,7 +283,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                 <SelectValue placeholder="📁 Tous les placards" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">📁 Tous les placards</SelectItem>
+                <SelectItem value="__all__">📁 Tous les placards</SelectItem>
                 {placards.map(placard => (
                   <SelectItem key={placard.id} value={placard.name}>
                     🗄️ Placard {placard.name}
@@ -298,9 +298,9 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                 <SelectValue placeholder="📚 Toutes les étagères" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">📚 Toutes les étagères</SelectItem>
+                <SelectItem value="__all__">📚 Toutes les étagères</SelectItem>
                 {shelves
-                  .filter(shelf => selectedPlacard === "" || shelf.placard_name === selectedPlacard)
+                  .filter(shelf => selectedPlacard === "__all__" || shelf.placard_name === selectedPlacard)
                   .map(shelf => (
                     <SelectItem key={shelf.id} value={shelf.name}>
                       📋 Étagère {shelf.name}
