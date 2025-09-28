@@ -136,8 +136,8 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   // Réinitialiser les filtres
   const resetFilters = () => {
     setSearchTerm("");
-    setSelectedPlacard("");
-    setSelectedShelf("");
+    setSelectedPlacard("__all__");
+    setSelectedShelf("__all__");
     setSortBy("title");
   };
 
@@ -146,8 +146,8 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (selectedPlacard) params.append('placard', selectedPlacard);
-      if (selectedShelf) params.append('shelf', selectedShelf);
+      if (selectedPlacard && selectedPlacard !== "__all__") params.append('placard', selectedPlacard);
+      if (selectedShelf && selectedShelf !== "__all__") params.append('shelf', selectedShelf);
 
       const response = await axios.get(`${API}/export/excel?${params.toString()}`, {
         responseType: 'blob'
