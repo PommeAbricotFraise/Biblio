@@ -38,9 +38,9 @@ const Navigation = () => {
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center">
                 <Sparkles className="h-6 w-6 mr-2 text-yellow-300" />
-                Ma Bibliothèque
+                Bibliothèque Scolaire
               </h1>
-              <p className="text-white/80 text-sm">Simple et colorée</p>
+              <p className="text-white/80 text-sm">Système de gestion</p>
             </div>
           </div>
 
