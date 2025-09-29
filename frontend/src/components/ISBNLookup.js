@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Search, BookOpen, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
-// import BarcodeScanner from "@/components/BarcodeScanner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -27,15 +26,16 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
   const [error, setError] = useState(null);
   const [adding, setAdding] = useState(false);
 
-  // Nettoyer l'ISBN (retirer les tirets et espaces)
-  const cleanISBN = (isbn) => {
-    return isbn.replace(/[^0-9X]/g, '');
-  };
-
-  // Rechercher les informations du livre par ISBN
+  // Rechercher un livre par ISBN
   const handleSearch = async () => {
-    const cleanedISBN = cleanISBN(isbn);
-    if (!cleanedISBN || cleanedISBN.length < 10) {
+    if (!isbn.trim()) {
+      toast.error("Veuillez entrer un ISBN");
+      return;
+    }
+
+    // Validation basique de l'ISBN
+    const cleanIsbn = isbn.replace(/[-\s]/g, "");
+    if (!/^\d{10}$/.test(cleanIsbn) && !/^\d{13}$/.test(cleanIsbn)) {
       toast.error("Veuillez entrer un ISBN valide (10 ou 13 chiffres)");
       return;
     }
@@ -45,13 +45,14 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
       setError(null);
       setBookInfo(null);
 
-      const response = await axios.get(`${API}/isbn/${cleanedISBN}`);
+      const response = await axios.get(`${API}/isbn/${cleanIsbn}`);
       setBookInfo(response.data);
       toast.success(`Livre trouvé via ${response.data.source} !`);
     } catch (error) {
       console.error("Erreur lors de la recherche ISBN:", error);
-      setError("Aucune information trouvée pour cet ISBN");
-      toast.error("Aucune information trouvée pour cet ISBN");
+      const errorMessage = error.response?.data?.detail || "Erreur lors de la recherche";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
 
   // Ajouter le livre à la bibliothèque
   const handleAddBook = async () => {
-    if (!selectedPlacard || !selectedShelf) {
+    if (!bookInfo || !selectedPlacard || !selectedShelf) {
       toast.error("Veuillez sélectionner un placard et une étagère");
       return;
     }
@@ -67,73 +68,71 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
     try {
       setAdding(true);
       
-      const response = await axios.post(
-        `${API}/books/from-isbn/${cleanISBN(isbn)}?placard=${selectedPlacard}&shelf=${selectedShelf}`
-      );
+      const bookData = {
+        title: bookInfo.title || "Livre sans titre",
+        author: bookInfo.authors?.join(", ") || "Auteur inconnu",
+        edition: bookInfo.publisher || "",
+        isbn: bookInfo.isbn || isbn,
+        count: 1,
+        placard: selectedPlacard,
+        shelf: selectedShelf,
+        description: bookInfo.description || "",
+        language: bookInfo.language || "fr",
+        pages: bookInfo.page_count || null,
+        publication_year: bookInfo.publication_date ? new Date(bookInfo.publication_date).getFullYear() : null
+      };
+
+      await axios.post(`${API}/books`, bookData);
       
-      toast.success("Livre ajouté avec succès à la bibliothèque !");
-      onSuccess();
+      toast.success(`Livre "${bookInfo.title}" ajouté avec succès !`);
+      
+      // Réinitialiser le formulaire
+      setIsbn("");
+      setBookInfo(null);
+      setSelectedPlacard("");
+      setSelectedShelf("");
+      setError(null);
+      
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
-      console.error("Erreur lors de l'ajout:", error);
+      console.error("Erreur lors de l'ajout du livre:", error);
       toast.error("Erreur lors de l'ajout du livre");
     } finally {
       setAdding(false);
     }
   };
 
-  // Filtrer les étagères selon le placard sélectionné
-  const filteredShelves = shelves.filter(shelf => 
-    selectedPlacard === "" || shelf.placard_name === selectedPlacard
-  );
-
-  // Réinitialiser la recherche
-  const handleReset = () => {
-    setIsbn("");
-    setBookInfo(null);
-    setError(null);
-    setSelectedPlacard("");
-    setSelectedShelf("");
-  };
-
   return (
     <div className="space-y-6">
       {/* Recherche ISBN */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Search className="h-5 w-5 mr-2" />
-              Recherche par ISBN
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-          <div className="flex space-x-2">
-            <div className="flex-1">
-              <Label htmlFor="isbn">ISBN</Label>
-              <Input
-                id="isbn"
-                value={isbn}
-                onChange={(e) => setIsbn(e.target.value)}
-                placeholder="Entrez l'ISBN (ex: 978-2-1234-5678-9)"
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button 
-                onClick={handleSearch} 
-                disabled={loading || !isbn.trim()}
-                className="h-10"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Search className="h-4 w-4 mr-2" />
-                )}
-                {loading ? "Recherche..." : "Rechercher"}
-              </Button>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Search className="h-5 w-5 mr-2" />
+            Recherche par ISBN
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-3">
+            <Input
+              placeholder="Entrez un ISBN (ex: 9782070360130)"
+              value={isbn}
+              onChange={(e) => setIsbn(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <Button onClick={handleSearch} disabled={loading} className="button-primary">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Search className="h-4 w-4 mr-2" />
+              )}
+              Rechercher
+            </Button>
           </div>
-
-          <p className="text-sm text-gray-500">
+          
+          <p className="text-sm text-gray-600">
             La recherche utilise la BNF, Google Books et Open Library
           </p>
         </CardContent>
@@ -151,92 +150,50 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
         </Card>
       )}
 
-      {/* Informations du livre trouvé */}
+      {/* Résultat de la recherche */}
       {bookInfo && (
         <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="flex items-center text-green-800">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              Livre trouvé !
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Image de couverture */}
-              {bookInfo.thumbnail && (
-                <div className="md:col-span-2 flex justify-center">
-                  <img 
-                    src={bookInfo.thumbnail} 
-                    alt={bookInfo.title}
-                    className="max-h-48 object-contain rounded-md shadow-sm"
-                  />
-                </div>
-              )}
-
-              {/* Informations principales */}
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-gray-600">Titre</Label>
-                  <p className="font-semibold">{bookInfo.title || 'Non spécifié'}</p>
-                </div>
-
-                <div>
-                  <Label className="text-gray-600">Auteur(s)</Label>
-                  <p>{bookInfo.authors?.join(', ') || 'Non spécifié'}</p>
-                </div>
-
-                <div>
-                  <Label className="text-gray-600">Éditeur</Label>
-                  <p>{bookInfo.publisher || 'Non spécifié'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-gray-600">Date de publication</Label>
-                  <p>{bookInfo.publication_date || 'Non spécifiée'}</p>
-                </div>
-
-                <div>
-                  <Label className="text-gray-600">Nombre de pages</Label>
-                  <p>{bookInfo.page_count || 'Non spécifié'}</p>
-                </div>
-
-                <div>
-                  <Label className="text-gray-600">Langue</Label>
-                  <p>{bookInfo.language || 'Non spécifiée'}</p>
-                </div>
-              </div>
-
-              {/* Catégories */}
-              {bookInfo.categories?.length > 0 && (
-                <div className="md:col-span-2">
-                  <Label className="text-gray-600">Catégories</Label>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {bookInfo.categories.map((category, index) => (
-                      <span 
-                        key={index}
-                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                      >
-                        {category}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Description */}
-              {bookInfo.description && (
-                <div className="md:col-span-2">
-                  <Label className="text-gray-600">Description</Label>
-                  <p className="text-sm text-gray-700 mt-1 line-clamp-4">
-                    {bookInfo.description.length > 300 
-                      ? bookInfo.description.substring(0, 300) + '...' 
-                      : bookInfo.description
-                    }
+          <CardContent className="pt-6">
+            <div className="flex items-start space-x-4">
+              <CheckCircle className="h-6 w-6 text-green-600 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-green-800 mb-2">
+                  {bookInfo.title || "Titre non disponible"}
+                </h3>
+                <div className="space-y-2">
+                  <p className="text-green-700">
+                    <strong>Auteur(s):</strong> {bookInfo.authors?.join(", ") || "Non disponible"}
                   </p>
+                  {bookInfo.publisher && (
+                    <p className="text-green-700">
+                      <strong>Éditeur:</strong> {bookInfo.publisher}
+                    </p>
+                  )}
+                  {bookInfo.publication_date && (
+                    <p className="text-green-700">
+                      <strong>Date de publication:</strong> {bookInfo.publication_date}
+                    </p>
+                  )}
+                  {bookInfo.page_count && (
+                    <p className="text-green-700">
+                      <strong>Nombre de pages:</strong> {bookInfo.page_count}
+                    </p>
+                  )}
+                  <p className="text-green-700">
+                    <strong>ISBN:</strong> {bookInfo.isbn}
+                  </p>
+                  {bookInfo.description && (
+                    <div className="mt-3">
+                      <strong className="text-green-800">Description:</strong>
+                      <p className="text-green-700 text-sm mt-1 leading-relaxed">
+                        {bookInfo.description.length > 200 
+                          ? bookInfo.description.substring(0, 200) + "..." 
+                          : bookInfo.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Source de l'information */}
@@ -245,8 +202,9 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
             </div>
           </CardContent>
         </Card>
+      )}
       
-      {/* Ajout à la bibliothèque pour l'onglet ISBN */}
+      {/* Ajout à la bibliothèque */}
       {bookInfo && (
         <Card>
           <CardHeader>
@@ -259,10 +217,10 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Sélection du placard */}
               <div>
-                <Label htmlFor="placard">Placard *</Label>
+                <Label htmlFor="placard">Placard</Label>
                 <Select value={selectedPlacard} onValueChange={setSelectedPlacard}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un placard" />
+                    <SelectValue placeholder="Sélectionner un placard" />
                   </SelectTrigger>
                   <SelectContent>
                     {placards.map(placard => (
@@ -276,45 +234,36 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
 
               {/* Sélection de l'étagère */}
               <div>
-                <Label htmlFor="shelf">Étagère *</Label>
-                <Select 
-                  value={selectedShelf} 
-                  onValueChange={setSelectedShelf}
-                  disabled={!selectedPlacard}
-                >
+                <Label htmlFor="shelf">Étagère</Label>
+                <Select value={selectedShelf} onValueChange={setSelectedShelf}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez une étagère" />
+                    <SelectValue placeholder="Sélectionner une étagère" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredShelves.map(shelf => (
-                      <SelectItem key={shelf.id} value={shelf.name}>
-                        Étagère {shelf.name}
-                      </SelectItem>
-                    ))}
+                    {shelves
+                      .filter(shelf => !selectedPlacard || shelf.placard_name === selectedPlacard)
+                      .map(shelf => (
+                        <SelectItem key={shelf.id} value={shelf.name}>
+                          Étagère {shelf.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={handleReset}>
-                Nouvelle recherche
-              </Button>
+            <div className="flex justify-end">
               <Button 
                 onClick={handleAddBook}
-                disabled={adding || !selectedPlacard || !selectedShelf}
+                disabled={!selectedPlacard || !selectedShelf || adding}
+                className="button-success"
               >
-                {adding ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <BookOpen className="h-4 w-4 mr-2" />
-                )}
                 {adding ? "Ajout..." : "Ajouter à la bibliothèque"}
               </Button>
             </div>
           </CardContent>
         </Card>
-      )} 
+      )}
     </div>
   );
 };
