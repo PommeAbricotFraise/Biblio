@@ -140,6 +140,50 @@ class StatusCheckCreate(BaseModel):
 
 
 # Utility functions for ISBN lookup
+def fetch_book_by_bnf(isbn: str) -> Optional[ISBNInfo]:
+    """Fetch book information from Bibliothèque nationale de France (BNF) using SPARQL"""
+    try:
+        sparql = SPARQLWrapper("http://data.bnf.fr/sparql")
+        
+        # Requête SPARQL pour rechercher un livre par ISBN
+        query = f"""
+        PREFIX dcterms: <http://purl.org/dc/terms/>
+        PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        PREFIX bnf-onto: <http://data.bnf.fr/ontology/bnf-onto/>
+        
+        SELECT DISTINCT ?title ?author ?publisher ?date WHERE {{
+            ?book dcterms:identifier "{isbn}" ;
+                  dcterms:title ?title .
+            OPTIONAL {{ ?book dcterms:creator ?creatorUri . 
+                       ?creatorUri foaf:name ?author }}
+            OPTIONAL {{ ?book dcterms:publisher ?publisherUri .
+                       ?publisherUri foaf:name ?publisher }}
+            OPTIONAL {{ ?book dcterms:date ?date }}
+        }}
+        LIMIT 1
+        """
+        
+        sparql.setQuery(query)
+        sparql.setReturnFormat(SPARQL_JSON)
+        
+        results = sparql.query().convert()
+        
+        if results["results"]["bindings"]:
+            result = results["results"]["bindings"][0]
+            
+            return ISBNInfo(
+                isbn=isbn,
+                title=result.get("title", {}).get("value"),
+                authors=[result.get("author", {}).get("value")] if result.get("author") else [],
+                publisher=result.get("publisher", {}).get("value"),
+                publication_date=result.get("date", {}).get("value"),
+                source="BNF (Bibliothèque nationale de France)"
+            )
+    except Exception as e:
+        logging.error(f"Error fetching from BNF SPARQL: {e}")
+    return None
+
 def fetch_book_by_google_books(isbn: str) -> Optional[ISBNInfo]:
     """Fetch book information from Google Books API"""
     try:
