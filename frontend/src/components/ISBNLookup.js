@@ -19,7 +19,6 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
-  const [activeTab, setActiveTab] = useState("isbn"); // isbn ou barcode
   const [isbn, setIsbn] = useState("");
   const [bookInfo, setBookInfo] = useState(null);
   const [loading, setLoading] = useState(false);
