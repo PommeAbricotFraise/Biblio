@@ -394,7 +394,7 @@ async def delete_book(book_id: str):
     result = await db.books.delete_one({"id": book_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Livre non trouvé")
-    return {"message": "Book deleted successfully"}
+    return {"message": "Livre supprimé avec succès"}
 
 # Placard endpoints
 @api_router.get("/placards", response_model=List[Placard])
