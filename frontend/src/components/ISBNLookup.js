@@ -275,7 +275,7 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
         </Card>
       )}
 
-      {/* Ajout à la bibliothèque */}
+      {/* Ajout à la bibliothèque pour l'onglet ISBN */}
       {bookInfo && (
         <Card>
           <CardHeader>
