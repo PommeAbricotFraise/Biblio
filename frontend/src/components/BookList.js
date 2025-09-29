@@ -321,16 +321,15 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
             </select>
 
             {/* Tri */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="form-input text-lg">
-                <SelectValue placeholder="📖 Par titre" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="title">📖 Par titre</SelectItem>
-                <SelectItem value="author">✍️ Par auteur</SelectItem>
-                <SelectItem value="date_added">🆕 Plus récents</SelectItem>
-              </SelectContent>
-            </Select>
+            <select 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+              className="form-input text-lg px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="title">📖 Par titre</option>
+              <option value="author">✍️ Par auteur</option>
+              <option value="date_added">🆕 Plus récents</option>
+            </select>
           </div>
 
           <div className="flex justify-center">
