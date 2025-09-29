@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, BookOpen, AlertCircle, CheckCircle, Loader2, ScanLine, Keyboard } from "lucide-react";
+import { Search, BookOpen, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 // import BarcodeScanner from "@/components/BarcodeScanner";
