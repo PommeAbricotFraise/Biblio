@@ -133,7 +133,7 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
           </div>
 
           <p className="text-sm text-gray-500">
-            La recherche utilise automatiquement Google Books et Open Library
+            La recherche utilise la BNF, Google Books et Open Library
           </p>
         </CardContent>
       </Card>
