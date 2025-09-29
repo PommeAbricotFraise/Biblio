@@ -315,14 +315,7 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Onglet Scanner de codes-barres */}
-      {activeTab === "barcode" && (
-        <div className="text-center py-8">
-          <p className="text-lg text-gray-600">🚧 Scanner de codes-barres en cours de finalisation...</p>
-        </div>
-      )}
+      )} 
     </div>
   );
 };
