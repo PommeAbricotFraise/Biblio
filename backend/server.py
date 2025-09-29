@@ -187,7 +187,8 @@ def fetch_book_by_bnf(isbn: str) -> Optional[ISBNInfo]:
 def fetch_book_by_google_books(isbn: str) -> Optional[ISBNInfo]:
     """Fetch book information from Google Books API"""
     try:
-        api_key = "AIzaSyCtmNBtpz28NH5S3hRoiQUGA9aOysZGQNM"  # Public demo key
+        # Clé API publique de démonstration - vous pouvez la remplacer
+        api_key = "AIzaSyCtmNBtpz28NH5S3hRoiQUGA9aOysZGQNM"
         url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={api_key}"
         response = requests.get(url, timeout=10)
         
@@ -195,6 +196,16 @@ def fetch_book_by_google_books(isbn: str) -> Optional[ISBNInfo]:
             data = response.json()
             if data.get('totalItems', 0) > 0:
                 book = data['items'][0]['volumeInfo']
+                
+                # Traitement sécurisé des catégories
+                categories = []
+                if book.get('categories'):
+                    for category in book.get('categories', []):
+                        if isinstance(category, str):
+                            categories.append(category)
+                        elif isinstance(category, dict) and 'name' in category:
+                            categories.append(category['name'])
+                
                 return ISBNInfo(
                     isbn=isbn,
                     title=book.get('title'),
@@ -204,7 +215,7 @@ def fetch_book_by_google_books(isbn: str) -> Optional[ISBNInfo]:
                     page_count=book.get('pageCount'),
                     description=book.get('description'),
                     language=book.get('language'),
-                    categories=book.get('categories', []),
+                    categories=categories,
                     thumbnail=book.get('imageLinks', {}).get('thumbnail'),
                     source="Google Books"
                 )
