@@ -23,7 +23,7 @@ import {
   Plus, 
   Archive,
   Package,
-  Wall,
+  BrickWall as Wall,
   BookOpen as ShelfIcon,
   Trash2,
   Edit,
