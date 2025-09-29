@@ -84,6 +84,7 @@ class Placard(BaseModel):
     description: Optional[str] = ""
     location: Optional[str] = ""
     capacity: Optional[int] = None
+    storage_type: Optional[str] = "placard"  # placard, bac, mur, etc.
     date_created: datetime = Field(default_factory=datetime.utcnow)
 
 class PlacardCreate(BaseModel):
@@ -91,6 +92,7 @@ class PlacardCreate(BaseModel):
     description: Optional[str] = ""
     location: Optional[str] = ""
     capacity: Optional[int] = None
+    storage_type: Optional[str] = "placard"
 
 class Shelf(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
