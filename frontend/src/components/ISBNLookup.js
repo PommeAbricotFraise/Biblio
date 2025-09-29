@@ -98,15 +98,42 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
 
   return (
     <div className="space-y-6">
-      {/* Recherche ISBN */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Search className="h-5 w-5 mr-2" />
-            Recherche par ISBN
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* Onglets */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <button
+          onClick={() => setActiveTab("isbn")}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "isbn"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          <Keyboard className="h-4 w-4" />
+          <span>🔍 Recherche ISBN</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("barcode")}
+          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 ${
+            activeTab === "barcode"
+              ? "bg-white text-green-600 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          <ScanLine className="h-4 w-4" />
+          <span>📱 Scanner de codes-barres</span>
+        </button>
+      </div>
+
+      {/* Contenu des onglets */}
+      {activeTab === "isbn" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Search className="h-5 w-5 mr-2" />
+              Recherche par ISBN
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
           <div className="flex space-x-2">
             <div className="flex-1">
               <Label htmlFor="isbn">ISBN</Label>
