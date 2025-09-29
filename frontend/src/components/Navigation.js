@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Book, BarChart3, Layout, BookOpen, Sparkles } from "lucide-react";
+import { Book, BarChart3, Layout, BookOpen, Sparkles, Container } from "lucide-react";
 
 const Navigation = () => {
   const navItems = [
@@ -16,6 +16,13 @@ const Navigation = () => {
       label: "Mes Livres",
       description: "Gérer tous vos livres",
       color: "text-green-300"
+    },
+    {
+      to: "/storage",
+      icon: Container,
+      label: "Rangements",
+      description: "Gérer placards, bacs, étagères...",
+      color: "text-purple-300"
     },
     {
       to: "/visualization",
