@@ -674,6 +674,34 @@ async def get_library_visualization():
     
     return visualization_data
 
+# Barcode Scanner Endpoint
+class BarcodeRequest(BaseModel):
+    barcode: str
+    placard: str
+    shelf: str
+
+@api_router.post("/barcode/scan")
+async def scan_barcode(request: BarcodeRequest):
+    """
+    Process a scanned barcode and try to find book info via ISBN lookup
+    """
+    barcode = request.barcode.strip()
+    
+    # Try to treat barcode as ISBN
+    book_info = await lookup_isbn(barcode)
+    if not book_info:
+        raise HTTPException(status_code=404, detail="Aucune information trouvée pour ce code-barres")
+    
+    # Return the book info with suggested placement
+    return {
+        "book_info": book_info,
+        "suggested_placement": {
+            "placard": request.placard,
+            "shelf": request.shelf
+        },
+        "message": f"Livre trouvé ! Vous pouvez maintenant l'ajouter à votre bibliothèque."
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
