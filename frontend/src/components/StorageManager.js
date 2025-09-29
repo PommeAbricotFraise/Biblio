@@ -24,7 +24,7 @@ import {
   Archive,
   Package,
   Wall,
-  Shelf as ShelfIcon,
+  BookOpen as ShelfIcon,
   Trash2,
   Edit,
   Package2,
