@@ -129,6 +129,57 @@
         - working: true
           agent: "main"
           comment: "Testé via curl - toutes les APIs fonctionnent. Livres: 23 entrées. Placards: Placard A. Étagères: 1-7 dans Placard A."
+        - working: true
+          agent: "testing"
+          comment: "CONFIRMÉ ✅ - Toutes les APIs existantes fonctionnent parfaitement. GET /books (24 livres), GET /placards (7 placards), GET /shelves (7 étagères). Filtrage et recherche OK."
+
+  - task: "Scanner de codes-barres"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "TESTÉ ✅ - Endpoint /api/barcode/scan fonctionne parfaitement. Testé avec ISBN valide (9780140328721) - retourne infos livre + placement suggéré. Messages français OK. API Open Library fonctionnelle."
+
+  - task: "Gestion des types de rangement"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "TESTÉ ✅ - Nouveau champ storage_type dans modèle Placard fonctionne. Tous les types supportés: placard, bac, mur, etagere_mobile, bibliotheque, autre. Création et récupération OK."
+
+  - task: "Messages d'erreur en français"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "TESTÉ ✅ - Tous les messages d'erreur sont en français. 'Livre non trouvé', 'Aucune information trouvée pour ce code-barres', etc. Implémentation correcte."
+
+  - task: "API ISBN lookup"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "testing"
+          comment: "TESTÉ ✅ - Endpoint /api/isbn/{isbn} fonctionne avec Open Library. BNF et Google Books ont des restrictions réseau mais Open Library compense. Gestion d'erreur française OK."
 
 ## metadata:
   created_by: "main_agent"
