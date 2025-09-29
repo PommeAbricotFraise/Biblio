@@ -440,15 +440,20 @@ async def delete_shelf(shelf_id: str):
 # ISBN lookup endpoints
 @api_router.get("/isbn/{isbn}", response_model=ISBNInfo)
 async def lookup_isbn(isbn: str):
-    """Look up book information by ISBN"""
-    # Try Google Books first
-    book_info = fetch_book_by_google_books(isbn)
-    if book_info:
+    """Look up book information by ISBN using multiple sources"""
+    # Essayer d'abord la BNF pour les livres français
+    book_info = fetch_book_by_bnf(isbn)
+    if book_info and book_info.title:
         return book_info
     
-    # Try Open Library if Google Books fails
+    # Puis Google Books qui a une bonne couverture
+    book_info = fetch_book_by_google_books(isbn)
+    if book_info and book_info.title:
+        return book_info
+    
+    # Enfin Open Library en derniers recours
     book_info = fetch_book_by_open_library(isbn)
-    if book_info:
+    if book_info and book_info.title:
         return book_info
     
     raise HTTPException(status_code=404, detail="No book information found for this ISBN")
