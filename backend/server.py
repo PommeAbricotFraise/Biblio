@@ -372,7 +372,7 @@ async def get_book(book_id: str):
     """Get a specific book by ID"""
     book = await db.books.find_one({"id": book_id})
     if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail="Livre non trouvé")
     return Book(**book)
 
 @api_router.put("/books/{book_id}", response_model=Book)
@@ -383,7 +383,7 @@ async def update_book(book_id: str, book_update: BookUpdate):
     
     result = await db.books.update_one({"id": book_id}, {"$set": update_data})
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail="Livre non trouvé")
     
     book = await db.books.find_one({"id": book_id})
     return Book(**book)
@@ -393,7 +393,7 @@ async def delete_book(book_id: str):
     """Delete a book"""
     result = await db.books.delete_one({"id": book_id})
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail="Livre non trouvé")
     return {"message": "Book deleted successfully"}
 
 # Placard endpoints
