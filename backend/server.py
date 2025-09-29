@@ -425,7 +425,7 @@ async def delete_placard(placard_id: str):
     # Delete the placard
     await db.placards.delete_one({"id": placard_id})
     
-    return {"message": "Placard and all associated data deleted successfully"}
+    return {"message": "Placard et toutes les données associées supprimés avec succès"}
 
 # Shelf endpoints
 @api_router.get("/shelves", response_model=List[Shelf])
