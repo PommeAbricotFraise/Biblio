@@ -479,7 +479,7 @@ async def lookup_isbn(isbn: str):
     if book_info and book_info.title:
         return book_info
     
-    raise HTTPException(status_code=404, detail="No book information found for this ISBN")
+    raise HTTPException(status_code=404, detail="Aucune information trouvée pour ce code-barres")
 
 @api_router.post("/books/from-isbn/{isbn}", response_model=Book)
 async def create_book_from_isbn(isbn: str, placard: str, shelf: str):
