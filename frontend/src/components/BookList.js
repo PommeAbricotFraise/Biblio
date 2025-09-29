@@ -291,19 +291,18 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
             </div>
 
             {/* Filtre par rangement */}
-            <Select value={selectedPlacard} onValueChange={setSelectedPlacard}>
-              <SelectTrigger className="form-input text-lg">
-                <SelectValue placeholder="🏗️ Tous les rangements" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">🏗️ Tous les rangements</SelectItem>
-                {placards.map(placard => (
-                  <SelectItem key={placard.id} value={placard.name}>
-                    {getStorageLabel(placard.storage_type)} {placard.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select 
+              value={selectedPlacard} 
+              onChange={(e) => setSelectedPlacard(e.target.value)}
+              className="form-input text-lg px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="__all__">🏗️ Tous les rangements</option>
+              {placards.map(placard => (
+                <option key={placard.id} value={placard.name}>
+                  {getStorageLabel(placard.storage_type)} {placard.name}
+                </option>
+              ))}
+            </select>
 
             {/* Filtre par étagère */}
             <Select value={selectedShelf} onValueChange={setSelectedShelf}>
