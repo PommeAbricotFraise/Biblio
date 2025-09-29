@@ -325,7 +325,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
             {/* Tri */}
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="form-input text-lg">
-                <SelectValue />
+                <SelectValue placeholder="📖 Par titre" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="title">📖 Par titre</SelectItem>
