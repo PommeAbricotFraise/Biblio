@@ -290,16 +290,16 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
               />
             </div>
 
-            {/* Filtre par placard */}
+            {/* Filtre par rangement */}
             <Select value={selectedPlacard} onValueChange={setSelectedPlacard}>
               <SelectTrigger className="form-input text-lg">
-                <SelectValue placeholder="📁 Tous les placards" />
+                <SelectValue placeholder="🏗️ Tous les rangements" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">📁 Tous les placards</SelectItem>
+                <SelectItem value="__all__">🏗️ Tous les rangements</SelectItem>
                 {placards.map(placard => (
                   <SelectItem key={placard.id} value={placard.name}>
-                    🗄️ Placard {placard.name}
+                    {getStorageLabel(placard.storage_type)} {placard.name}
                   </SelectItem>
                 ))}
               </SelectContent>
