@@ -344,6 +344,16 @@ const ISBNLookup = ({ placards = [], shelves = [], onSuccess }) => {
           </CardContent>
         </Card>
       )}
+      )}
+
+      {/* Onglet Scanner de codes-barres */}
+      {activeTab === "barcode" && (
+        <BarcodeScanner 
+          placards={placards} 
+          shelves={shelves} 
+          onSuccess={onSuccess}
+        />
+      )}
     </div>
   );
 };
