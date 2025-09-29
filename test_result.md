@@ -101,3 +101,50 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+## user_problem_statement: "Correction du bug de filtrage récurrent dans BookList.js - Les filtres 'Tous les placards', 'Toutes les étagères', et 'par titre' causaient des erreurs SelectItem. Ajouter fonctionnalités de gestion des rangements et scanner de codes-barres."
+
+## frontend:
+  - task: "Correction bug filtrage SelectItem"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/components/BookList.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Corrigé l'initialisation des états selectedPlacard et selectedShelf avec '__all__' au lieu de chaînes vides. Tests visuels confirmés - tous les filtres s'ouvrent et affichent correctement les options."
+
+## backend:
+  - task: "API livres, placards, étagères existantes"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Testé via curl - toutes les APIs fonctionnent. Livres: 23 entrées. Placards: Placard A. Étagères: 1-7 dans Placard A."
+
+## metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+## test_plan:
+  current_focus:
+    - "Ajouter nouvelles fonctionnalités rangements"
+    - "Intégrer scanner codes-barres"
+    - "Renommer Placard -> Rangement"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+## agent_communication:
+    - agent: "main"
+      message: "Phase 1 TERMINÉE ✅ - Bug de filtrage corrigé définitivement. Les SelectItem fonctionnent parfaitement. Prêt pour Phase 2: nouvelles fonctionnalités rangements."
