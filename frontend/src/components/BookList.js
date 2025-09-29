@@ -392,7 +392,10 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
                       <div className="space-y-1">
                         <div className="flex items-center">
                           <span className="badge-blue px-3 py-1 rounded-full text-sm">
-                            🗄️ Placard {book.placard}
+                            {(() => {
+                              const placard = placards.find(p => p.name === book.placard);
+                              return getStorageLabel(placard?.storage_type);
+                            })()} {book.placard}
                           </span>
                         </div>
                         <div className="flex items-center">
