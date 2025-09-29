@@ -458,7 +458,7 @@ async def delete_shelf(shelf_id: str):
     # Delete the shelf
     await db.shelves.delete_one({"id": shelf_id})
     
-    return {"message": "Shelf and all associated books deleted successfully"}
+    return {"message": "Étagère et tous les livres associés supprimés avec succès"}
 
 # ISBN lookup endpoints
 @api_router.get("/isbn/{isbn}", response_model=ISBNInfo)
