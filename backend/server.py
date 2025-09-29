@@ -416,7 +416,7 @@ async def delete_placard(placard_id: str):
     """Delete a placard and all its books"""
     placard = await db.placards.find_one({"id": placard_id})
     if not placard:
-        raise HTTPException(status_code=404, detail="Placard not found")
+        raise HTTPException(status_code=404, detail="Placard non trouvé")
     
     # Delete all books in this placard
     await db.books.delete_many({"placard": placard["name"]})
