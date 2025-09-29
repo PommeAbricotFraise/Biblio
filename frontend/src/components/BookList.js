@@ -48,8 +48,8 @@ const API = `${BACKEND_URL}/api`;
 const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPlacard, setSelectedPlacard] = useState("__all__");
-  const [selectedShelf, setSelectedShelf] = useState("__all__");
+  const [selectedPlacard, setSelectedPlacard] = useState("");
+  const [selectedShelf, setSelectedShelf] = useState("");
   const [sortBy, setSortBy] = useState("title");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
