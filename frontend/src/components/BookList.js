@@ -305,21 +305,20 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
             </select>
 
             {/* Filtre par étagère */}
-            <Select value={selectedShelf} onValueChange={setSelectedShelf}>
-              <SelectTrigger className="form-input text-lg">
-                <SelectValue placeholder="📚 Toutes les étagères" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">📚 Toutes les étagères</SelectItem>
-                {shelves
-                  .filter(shelf => selectedPlacard === "__all__" || shelf.placard_name === selectedPlacard)
-                  .map(shelf => (
-                    <SelectItem key={shelf.id} value={shelf.name}>
-                      📋 Étagère {shelf.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <select 
+              value={selectedShelf} 
+              onChange={(e) => setSelectedShelf(e.target.value)}
+              className="form-input text-lg px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="__all__">📚 Toutes les étagères</option>
+              {shelves
+                .filter(shelf => selectedPlacard === "__all__" || shelf.placard_name === selectedPlacard)
+                .map(shelf => (
+                  <option key={shelf.id} value={shelf.name}>
+                    📋 Étagère {shelf.name}
+                  </option>
+                ))}
+            </select>
 
             {/* Tri */}
             <Select value={sortBy} onValueChange={setSortBy}>
