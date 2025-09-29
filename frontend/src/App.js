@@ -7,6 +7,7 @@ import { toast, Toaster } from "sonner";
 // Components
 import Dashboard from "@/components/Dashboard";
 import BookList from "@/components/BookList";
+import StorageManager from "@/components/StorageManager";
 import LibraryVisualization from "@/components/LibraryVisualization";
 import Navigation from "@/components/Navigation";
 
