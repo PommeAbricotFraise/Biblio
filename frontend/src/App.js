@@ -99,6 +99,16 @@ function App() {
                 } 
               />
               <Route 
+                path="/storage" 
+                element={
+                  <StorageManager 
+                    placards={placards}
+                    shelves={shelves}
+                    refreshData={refreshData}
+                  />
+                } 
+              />
+              <Route 
                 path="/visualization" 
                 element={
                   <LibraryVisualization 
