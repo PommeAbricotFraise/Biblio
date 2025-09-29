@@ -699,7 +699,7 @@ async def scan_barcode(request: BarcodeRequest):
             "placard": request.placard,
             "shelf": request.shelf
         },
-        "message": f"Livre trouvé ! Vous pouvez maintenant l'ajouter à votre bibliothèque."
+        "message": "Livre trouvé ! Vous pouvez maintenant l'ajouter à votre bibliothèque."
     }
 
 # Include the router in the main app
