@@ -148,3 +148,5 @@
 ## agent_communication:
     - agent: "main"
       message: "Phase 1 TERMINÉE ✅ - Bug de filtrage corrigé définitivement. Les SelectItem fonctionnent parfaitement. Prêt pour Phase 2: nouvelles fonctionnalités rangements."
+    - agent: "testing"
+      message: "BACKEND TESTING COMPLET ✅ - Toutes les nouvelles fonctionnalités testées avec succès. Scanner de codes-barres et types de rangement fonctionnent parfaitement. Quelques limitations réseau externes mais fonctionnalité principale OK."
