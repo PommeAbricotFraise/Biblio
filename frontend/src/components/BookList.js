@@ -57,6 +57,19 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Obtenir le label d'un type de rangement
+  const getStorageLabel = (storageType) => {
+    const labels = {
+      "placard": "📁 Placard",
+      "bac": "📦 Bac", 
+      "mur": "🧱 Mur",
+      "etagere_mobile": "🛒 Étagère mobile",
+      "bibliotheque": "📚 Bibliothèque",
+      "autre": "📋 Autre"
+    };
+    return labels[storageType] || "📁 Placard";
+  };
+
   // Couleurs aléatoires pour les livres
   const bookColors = [
     'bg-gradient-to-r from-blue-400 to-blue-600',
