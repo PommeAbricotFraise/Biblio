@@ -223,6 +223,16 @@ def fetch_book_by_open_library(isbn: str) -> Optional[ISBNInfo]:
             book_key = f"ISBN:{isbn}"
             if book_key in data:
                 book = data[book_key]
+                
+                # Traitement des catégories (subjects)
+                categories = []
+                if book.get('subjects'):
+                    for subject in book.get('subjects', [])[:5]:  # Limiter à 5
+                        if isinstance(subject, dict) and 'name' in subject:
+                            categories.append(subject['name'])
+                        elif isinstance(subject, str):
+                            categories.append(subject)
+                
                 return ISBNInfo(
                     isbn=isbn,
                     title=book.get('title'),
@@ -231,7 +241,7 @@ def fetch_book_by_open_library(isbn: str) -> Optional[ISBNInfo]:
                     publication_date=book.get('publish_date'),
                     page_count=book.get('number_of_pages'),
                     description=book.get('description', {}).get('value') if isinstance(book.get('description'), dict) else book.get('description'),
-                    categories=book.get('subjects', [])[:5] if book.get('subjects') else [],
+                    categories=categories,
                     thumbnail=book.get('cover', {}).get('medium'),
                     source="Open Library"
                 )
