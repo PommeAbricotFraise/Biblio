@@ -451,7 +451,7 @@ async def delete_shelf(shelf_id: str):
     """Delete a shelf and all its books"""
     shelf = await db.shelves.find_one({"id": shelf_id})
     if not shelf:
-        raise HTTPException(status_code=404, detail="Shelf not found")
+        raise HTTPException(status_code=404, detail="Étagère non trouvée")
     
     # Delete all books on this shelf
     await db.books.delete_many({"shelf": shelf["name"], "placard": shelf["placard_name"]})
