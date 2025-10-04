@@ -58,6 +58,14 @@ function App() {
       setShelves(shelvesRes.data);
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
+      
+      // Si erreur d'authentification, nettoyer la session
+      if (error.response?.status === 401) {
+        console.log("Session invalide, redirection vers sélection d'école");
+        handleLogout();
+        return;
+      }
+      
       toast.error("Erreur lors du chargement des données");
       setStats(null);
       setBooks([]);
