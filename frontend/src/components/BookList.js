@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboard";
+import AdvancedSearch from "@/components/AdvancedSearch";
+import { EnhancedInput } from "@/components/ui/input-enhanced";
 import { 
   Table, 
   TableBody, 
