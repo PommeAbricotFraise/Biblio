@@ -29,17 +29,22 @@ const SchoolSelector = ({ onSchoolSelected }) => {
 
   // Vérifier si une école est déjà connectée au chargement
   useEffect(() => {
-    const savedSchool = localStorage.getItem("current_school");
-    if (savedSchool) {
-      try {
-        const school = JSON.parse(savedSchool);
-        // Vérifier que l'école existe toujours
-        validateSchool(school);
-      } catch (e) {
-        localStorage.removeItem("current_school");
-        localStorage.removeItem("school_code");
+    const checkSavedSchool = async () => {
+      const savedSchool = localStorage.getItem("current_school");
+      if (savedSchool) {
+        try {
+          const school = JSON.parse(savedSchool);
+          // Vérifier que l'école existe toujours
+          await validateSchool(school);
+        } catch (e) {
+          console.log("Erreur validation école:", e);
+          localStorage.removeItem("current_school");
+          localStorage.removeItem("school_code");
+        }
       }
-    }
+    };
+    
+    checkSavedSchool();
   }, [onSchoolSelected]);
 
   // Valider qu'une école existe toujours
