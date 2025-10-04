@@ -96,10 +96,7 @@ function App() {
     }
   }, [currentSchool]);
   
-  // Refresh data function to be passed to child components
-  const refreshData = () => {
-    fetchData();
-  };
+  // refreshData function is now defined above with authentication
 
   if (loading) {
     return (
