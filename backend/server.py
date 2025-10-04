@@ -433,9 +433,9 @@ async def delete_book(book_id: str):
 
 # Placard endpoints
 @api_router.get("/placards", response_model=List[Placard])
-async def get_placards():
+async def get_placards(school_id: str = Depends(get_school_id_from_header)):
     """Get all placards"""
-    placards = await db.placards.find().to_list(1000)
+    placards = await db.placards.find({"school_id": school_id}).to_list(1000)
     return [Placard(**placard) for placard in placards]
 
 @api_router.post("/placards", response_model=Placard)
