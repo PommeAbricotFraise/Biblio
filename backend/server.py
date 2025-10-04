@@ -707,6 +707,90 @@ async def get_library_visualization():
     
     return visualization_data
 
+# Fonctions d'authentification et de sécurité
+
+def hash_password(password: str) -> str:
+    """Hash un mot de passe avec SHA-256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Vérifie un mot de passe"""
+    return hash_password(password) == hashed
+
+async def get_school_id_from_header(school_code: str = Header(alias="X-School-Code")) -> str:
+    """Récupère l'ID de l'école depuis le header"""
+    if not school_code:
+        raise HTTPException(status_code=401, detail="Code école manquant")
+    
+    school = await db.schools.find_one({"code": school_code, "active": True})
+    if not school:
+        raise HTTPException(status_code=401, detail="École non trouvée ou inactive")
+    
+    return school["id"]
+
+# Endpoints pour les écoles
+
+@api_router.post("/schools", response_model=School)
+async def create_school(school_data: SchoolCreate):
+    """Créer une nouvelle école"""
+    # Vérifier si le code existe déjà
+    existing = await db.schools.find_one({"code": school_data.code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Ce code école existe déjà")
+    
+    # Créer l'école
+    school_dict = {
+        "id": str(uuid.uuid4()),
+        "name": school_data.name,
+        "code": school_data.code.upper(),
+        "admin_password": hash_password(school_data.admin_password),
+        "address": school_data.address,
+        "phone": school_data.phone,
+        "email": school_data.email,
+        "created_date": datetime.utcnow(),
+        "active": True
+    }
+    
+    await db.schools.insert_one(school_dict)
+    return School(**school_dict)
+
+@api_router.post("/schools/login")
+async def login_school(login_data: SchoolLogin):
+    """Connexion à une école"""
+    school = await db.schools.find_one({"code": login_data.code.upper(), "active": True})
+    if not school:
+        raise HTTPException(status_code=401, detail="Code école invalide")
+    
+    # Vérification mot de passe si fourni (pour admin)
+    is_admin = False
+    if login_data.password:
+        if verify_password(login_data.password, school["admin_password"]):
+            is_admin = True
+        else:
+            raise HTTPException(status_code=401, detail="Mot de passe administrateur incorrect")
+    
+    return {
+        "school_id": school["id"],
+        "school_name": school["name"],
+        "school_code": school["code"],
+        "is_admin": is_admin,
+        "message": f"Connexion réussie à {school['name']}"
+    }
+
+@api_router.get("/schools/{school_code}")
+async def get_school_info(school_code: str):
+    """Récupérer les informations publiques d'une école"""
+    school = await db.schools.find_one({"code": school_code.upper(), "active": True})
+    if not school:
+        raise HTTPException(status_code=404, detail="École non trouvée")
+    
+    return {
+        "name": school["name"],
+        "code": school["code"],
+        "address": school.get("address", ""),
+        "phone": school.get("phone", "")
+    }
+
 # Barcode Scanner Endpoint
 class BarcodeRequest(BaseModel):
     barcode: str
