@@ -730,6 +730,17 @@ def verify_password(password: str, hashed: str) -> bool:
     """Vérifie un mot de passe"""
     return hash_password(password) == hashed
 
+async def get_school_id_from_header(school_code: str = Header(alias="X-School-Code")) -> str:
+    """Récupère l'ID de l'école depuis le header"""
+    if not school_code:
+        raise HTTPException(status_code=401, detail="Code école manquant")
+    
+    school = await db.schools.find_one({"code": school_code, "active": True})
+    if not school:
+        raise HTTPException(status_code=401, detail="École non trouvée ou inactive")
+    
+    return school["id"]
+
 # Supprimé - déplacé plus haut
 
 # Endpoints pour les écoles
