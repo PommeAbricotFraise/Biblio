@@ -141,6 +141,7 @@ class ShelfCreate(BaseModel):
     position: Optional[int] = None
     capacity: Optional[int] = None
     description: Optional[str] = ""
+    # school_id sera ajouté automatiquement
 
 class ISBNInfo(BaseModel):
     isbn: str
