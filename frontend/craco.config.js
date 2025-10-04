@@ -1,4 +1,4 @@
-// Load configuration from environment or config file
+// craco.config.js
 const path = require('path');
 
 // Environment variable overrides
@@ -11,9 +11,24 @@ module.exports = {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
-    configure: (webpackConfig) => {
+    configure: (webpackConfig, { env }) => {
       
-      // Disable hot reload completely if environment variable is set
+      // 1. DÉSACTIVATION DE TERSER (CORRECTION DE L'ERREUR 'ajv/codegen')
+      // Cette correction est appliquée uniquement en mode production (build)
+      if (env === 'production') {
+        const terserPluginIndex = webpackConfig.optimization.minimizer.findIndex(
+          (minimizer) => minimizer.options && minimizer.options.terserOptions
+        );
+
+        if (terserPluginIndex !== -1) {
+          console.log('Disabling TerserPlugin to bypass known ajv/codegen build error.');
+          // Remplace le minimizer par une fonction vide pour désactiver la minification problématique
+          webpackConfig.optimization.minimizer[terserPluginIndex] = (compiler) => {}; 
+        }
+      }
+
+      // 2. LOGIQUE DE HOT RELOAD EXISTANTE
+      // (Conserve votre logique pour disableHotReload)
       if (config.disableHotReload) {
         // Remove hot reload related plugins
         webpackConfig.plugins = webpackConfig.plugins.filter(plugin => {
