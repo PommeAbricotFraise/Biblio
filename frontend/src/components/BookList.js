@@ -107,10 +107,11 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
 
   // Filtrer et trier les livres
   useEffect(() => {
-    let filtered = [...books];
+    // Si on a des résultats de recherche avancée, on les utilise comme base
+    let filtered = advancedSearchResults ? [...advancedSearchResults] : [...books];
 
-    // Filtrage par terme de recherche
-    if (searchTerm) {
+    // Filtrage par terme de recherche (seulement si pas de recherche avancée active)
+    if (searchTerm && !advancedSearchResults && !searchTerm.startsWith('Recherche avancée')) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(book => 
         book.title.toLowerCase().includes(term) ||
@@ -120,13 +121,13 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
       );
     }
 
-    // Filtrage par placard
-    if (selectedPlacard && selectedPlacard !== "__all__") {
+    // Filtrage par placard (seulement si pas de recherche avancée active)
+    if (selectedPlacard && selectedPlacard !== "__all__" && !advancedSearchResults) {
       filtered = filtered.filter(book => book.placard === selectedPlacard);
     }
 
-    // Filtrage par étagère
-    if (selectedShelf && selectedShelf !== "__all__") {
+    // Filtrage par étagère (seulement si pas de recherche avancée active)
+    if (selectedShelf && selectedShelf !== "__all__" && !advancedSearchResults) {
       filtered = filtered.filter(book => book.shelf === selectedShelf);
     }
 
@@ -145,7 +146,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
     });
 
     setFilteredBooks(filtered);
-  }, [books, searchTerm, selectedPlacard, selectedShelf, sortBy]);
+  }, [books, searchTerm, selectedPlacard, selectedShelf, sortBy, advancedSearchResults]);
 
   // Supprimer un livre
   const handleDeleteBook = async (bookId) => {
