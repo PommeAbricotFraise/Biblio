@@ -302,15 +302,43 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
       <Card className="library-card hover-lift">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            {/* Barre de recherche */}
+            {/* Barre de recherche améliorée */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-purple-400" />
-              <Input
-                placeholder="🔍 Rechercher un livre..."
+              <EnhancedInput
+                id="search-input"
+                placeholder="🔍 Rechercher un livre... (Ctrl+F)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                suggestions={authorSuggestions}
                 className="form-input pl-12 text-lg"
               />
+            </div>
+            
+            {/* Recherche avancée */}
+            <div className="flex gap-2 items-center">
+              <AdvancedSearch 
+                books={advancedSearchResults || books}
+                placards={placards}
+                shelves={shelves}
+                onResults={(results) => {
+                  setAdvancedSearchResults(results);
+                  setSearchTerm(`Recherche avancée (${results.length} résultats)`);
+                }}
+              />
+              {advancedSearchResults && (
+                <Button
+                  onClick={() => {
+                    setAdvancedSearchResults(null);
+                    setSearchTerm("");
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  ❌ Effacer filtres
+                </Button>
+              )}
             </div>
 
             {/* Filtre par rangement */}
