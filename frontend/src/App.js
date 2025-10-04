@@ -21,7 +21,6 @@ const API = `${BACKEND_URL}/api`;
 
 // Main App Component
 function App() {
-  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [books, setBooks] = useState([]);
   const [placards, setPlacards] = useState([]);
