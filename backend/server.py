@@ -123,6 +123,7 @@ class PlacardCreate(BaseModel):
     location: Optional[str] = ""
     capacity: Optional[int] = None
     storage_type: Optional[str] = "placard"
+    # school_id sera ajouté automatiquement
 
 class Shelf(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
