@@ -48,7 +48,7 @@ import ISBNLookup from "@/components/ISBNLookup";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
+const BookList = ({ books = [], placards = [], shelves = [], refreshData, currentSchool }) => {
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlacard, setSelectedPlacard] = useState("__all__");
@@ -59,6 +59,26 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData }) => {
   const [isISBNDialogOpen, setIsISBNDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [advancedSearchResults, setAdvancedSearchResults] = useState(null);
+
+  // Auto-complétion pour les champs
+  const authorSuggestions = useMemo(() => 
+    [...new Set(books.map(book => book.author).filter(Boolean))],
+    [books]
+  );
+
+  // Raccourcis clavier
+  useKeyboardShortcuts({
+    'ctrl+n': () => setIsAddDialogOpen(true),
+    'ctrl+f': () => document.getElementById('search-input')?.focus(),
+    'ctrl+shift+f': () => {}, // Sera géré par AdvancedSearch
+    'escape': () => {
+      setIsAddDialogOpen(false);
+      setIsEditDialogOpen(false);
+      setIsISBNDialogOpen(false);
+      setAdvancedSearchResults(null);
+    }
+  });
 
   // Obtenir le label d'un type de rangement
   const getStorageLabel = (storageType) => {
