@@ -580,17 +580,24 @@ async def get_library_stats():
 @api_router.get("/export/excel")
 async def export_books_excel(
     placard: Optional[str] = Query(None),
-    shelf: Optional[str] = Query(None)
+    shelf: Optional[str] = Query(None),
+    school_id: str = Depends(get_school_id_from_header)
 ):
-    """Export books to Excel file"""
-    filter_query = {}
+    """Export books to Excel file for the school"""
+    filter_query = {"school_id": school_id}
     
     if placard:
         filter_query["placard"] = placard
     if shelf:
         filter_query["shelf"] = shelf
     
+    # Get school info for the filename
+    school = await db.schools.find_one({"id": school_id})
+    school_name = school["name"] if school else "École"
+    
     books = await db.books.find(filter_query).sort("title", 1).to_list(None)
+    placards = await db.placards.find({"school_id": school_id}).to_list(None)
+    shelves = await db.shelves.find({"school_id": school_id}).to_list(None)
     
     # Convert to pandas DataFrame
     df_data = []
