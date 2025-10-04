@@ -509,7 +509,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
 
       {/* Dialog pour modifier un livre */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center">
               <Edit className="h-6 w-6 mr-2 text-blue-600" />
