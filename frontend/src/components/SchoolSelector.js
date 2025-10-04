@@ -50,14 +50,19 @@ const SchoolSelector = ({ onSchoolSelected }) => {
   // Valider qu'une école existe toujours
   const validateSchool = async (school) => {
     try {
-      const response = await axios.get(`${API}/schools/${school.school_code}`);
+      const response = await axios.get(`${API}/schools/${school.school_code}`, {
+        timeout: 5000 // 5 secondes max
+      });
       if (response.data) {
+        console.log("École validée, connexion automatique");
         onSchoolSelected(school);
       }
     } catch (error) {
-      console.log("École non trouvée, suppression de la session");
+      console.log("École non trouvée ou erreur, suppression de la session:", error.message);
       localStorage.removeItem("current_school");
       localStorage.removeItem("school_code");
+      // Force un re-render
+      window.location.reload();
     }
   };
 
