@@ -91,6 +91,7 @@ class BookCreate(BaseModel):
     language: Optional[str] = "fr"
     pages: Optional[int] = None
     publication_year: Optional[int] = None
+    # school_id sera ajouté automatiquement par le système
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
