@@ -91,6 +91,19 @@ const Navigation = ({ currentSchool, onLogout }) => {
               </svg>
             </button>
           </div>
+
+          {/* Bouton de déconnexion */}
+          <div className="flex items-center">
+            <Button
+              onClick={onLogout}
+              variant="outline"
+              size="sm"
+              className="text-white border-white/30 hover:bg-white/10 hover:text-white transition-all duration-200"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Changer d'école
+            </Button>
+          </div>
         </div>
       </div>
     </nav>
