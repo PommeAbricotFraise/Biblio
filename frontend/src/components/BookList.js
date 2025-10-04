@@ -249,7 +249,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
                 📖 Recherche ISBN
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center">
                   <Search className="h-6 w-6 mr-2 text-blue-600" />
@@ -277,7 +277,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
                 ✏️ Ajouter un livre
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center">
                   <Plus className="h-6 w-6 mr-2 text-green-600" />
