@@ -76,6 +76,7 @@ class Book(BaseModel):
     language: Optional[str] = "fr"
     pages: Optional[int] = None
     publication_year: Optional[int] = None
+    school_id: str  # ID de l'école
 
 class BookCreate(BaseModel):
     title: str
