@@ -3,6 +3,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+import { validateSession, clearAllSessions } from "@/utils/sessionManager";
 
 // Components
 import Dashboard from "@/components/Dashboard";
