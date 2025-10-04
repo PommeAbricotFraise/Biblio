@@ -108,6 +108,19 @@ function App() {
   
   // refreshData function is now defined above with authentication
 
+  // Vérifier la session au chargement
+  useEffect(() => {
+    const savedSchool = localStorage.getItem("current_school");
+    if (savedSchool) {
+      try {
+        const school = JSON.parse(savedSchool);
+        setCurrentSchool(school);
+      } catch (e) {
+        localStorage.clear();
+      }
+    }
+  }, []);
+
   // Si aucune école n'est sélectionnée, afficher le sélecteur
   if (!currentSchool) {
     return <SchoolSelector onSchoolSelected={handleSchoolSelected} />;
