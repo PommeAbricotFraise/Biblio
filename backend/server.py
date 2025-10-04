@@ -475,9 +475,10 @@ async def get_shelves(placard_name: Optional[str] = Query(None), school_id: str 
     return [Shelf(**shelf) for shelf in shelves]
 
 @api_router.post("/shelves", response_model=Shelf)
-async def create_shelf(shelf: ShelfCreate):
+async def create_shelf(shelf: ShelfCreate, school_id: str = Depends(get_school_id_from_header)):
     """Create a new shelf"""
     shelf_dict = shelf.dict()
+    shelf_dict["school_id"] = school_id  # Ajouter l'ID de l'école
     shelf_obj = Shelf(**shelf_dict)
     await db.shelves.insert_one(shelf_obj.dict())
     return shelf_obj
