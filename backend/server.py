@@ -115,6 +115,7 @@ class Placard(BaseModel):
     capacity: Optional[int] = None
     storage_type: Optional[str] = "placard"  # placard, bac, mur, etc.
     date_created: datetime = Field(default_factory=datetime.utcnow)
+    school_id: str  # ID de l'école
 
 class PlacardCreate(BaseModel):
     name: str
