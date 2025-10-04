@@ -25,27 +25,44 @@ function App() {
   const [shelves, setShelves] = useState([]);
   const [currentSchool, setCurrentSchool] = useState(null);
   
+  // Configuration axios avec authentification
+  const getAxiosConfig = () => {
+    const schoolCode = localStorage.getItem("school_code");
+    if (!schoolCode) return {};
+    
+    return {
+      headers: {
+        "X-School-Code": schoolCode
+      }
+    };
+  };
+
   // Fetch initial data
   const fetchData = async () => {
+    if (!currentSchool) return;
+    
     try {
       setLoading(true);
+      const config = getAxiosConfig();
       
-      // Fetch all data in parallel
       const [statsRes, booksRes, placardsRes, shelvesRes] = await Promise.all([
-        axios.get(`${API}/stats`),
-        axios.get(`${API}/books`),
-        axios.get(`${API}/placards`),
-        axios.get(`${API}/shelves`)
+        axios.get(`${API}/stats`, config),
+        axios.get(`${API}/books`, config),
+        axios.get(`${API}/placards`, config), 
+        axios.get(`${API}/shelves`, config)
       ]);
       
       setStats(statsRes.data);
       setBooks(booksRes.data);
       setPlacards(placardsRes.data);
       setShelves(shelvesRes.data);
-      
     } catch (error) {
-      console.error("Erreur lors du chargement des données:", error);
+      console.error('Erreur lors du chargement des données:', error);
       toast.error("Erreur lors du chargement des données");
+      setStats(null);
+      setBooks([]);
+      setPlacards([]);
+      setShelves([]);
     } finally {
       setLoading(false);
     }
