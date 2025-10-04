@@ -98,13 +98,18 @@ function App() {
   
   // refreshData function is now defined above with authentication
 
+  // Si aucune école n'est sélectionnée, afficher le sélecteur
+  if (!currentSchool) {
+    return <SchoolSelector onSchoolSelected={handleSchoolSelected} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <h2 className="text-xl font-semibold text-gray-700 mt-4">
-            Chargement du système de bibliothèque...
+            Chargement des données de {currentSchool.school_name}...
           </h2>
         </div>
       </div>
@@ -115,7 +120,10 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <BrowserRouter>
         <div className="flex flex-col min-h-screen">
-          <Navigation />
+          <Navigation 
+            currentSchool={currentSchool}
+            onLogout={handleLogout}
+          />
           
           <main className="flex-1 container mx-auto px-4 py-8">
             <Routes>
@@ -125,6 +133,7 @@ function App() {
                   <Dashboard 
                     stats={stats} 
                     refreshData={refreshData}
+                    currentSchool={currentSchool}
                   />
                 } 
               />
@@ -136,6 +145,7 @@ function App() {
                     placards={placards}
                     shelves={shelves}
                     refreshData={refreshData}
+                    currentSchool={currentSchool}
                   />
                 } 
               />
@@ -146,6 +156,7 @@ function App() {
                     placards={placards}
                     shelves={shelves}
                     refreshData={refreshData}
+                    currentSchool={currentSchool}
                   />
                 } 
               />
@@ -154,6 +165,7 @@ function App() {
                 element={
                   <LibraryVisualization 
                     refreshData={refreshData}
+                    currentSchool={currentSchool}
                   />
                 } 
               />
