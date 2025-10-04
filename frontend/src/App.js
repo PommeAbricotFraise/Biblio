@@ -123,6 +123,7 @@ function App() {
       </BrowserRouter>
       
       <Toaster position="top-right" />
+      <InstallPrompt />
     </div>
   );
 }
