@@ -39,8 +39,12 @@ const Dashboard = ({ stats, refreshData }) => {
   const handleExportExcel = async () => {
     try {
       setLoading(true);
+      const schoolCode = localStorage.getItem("school_code");
       const response = await axios.get(`${API}/export/excel`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        headers: {
+          "X-School-Code": schoolCode
+        }
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
