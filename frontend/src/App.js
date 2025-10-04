@@ -11,6 +11,7 @@ import StorageManager from "@/components/StorageManager";
 import LibraryVisualization from "@/components/LibraryVisualization";
 import Navigation from "@/components/Navigation";
 import InstallPrompt from "@/components/InstallPrompt";
+import SchoolSelector from "@/components/SchoolSelector";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
