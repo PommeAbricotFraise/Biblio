@@ -1,7 +1,8 @@
 import { NavLink } from "react-router-dom";
-import { Book, BarChart3, Layout, BookOpen, Sparkles, Container } from "lucide-react";
+import { Book, BarChart3, Layout, BookOpen, Sparkles, Container, LogOut, School } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const Navigation = () => {
+const Navigation = ({ currentSchool, onLogout }) => {
   const navItems = [
     {
       to: "/",
