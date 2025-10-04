@@ -369,10 +369,11 @@ async def get_books(
     search: Optional[str] = Query(None),
     placard: Optional[str] = Query(None),
     shelf: Optional[str] = Query(None),
-    sort_by: Optional[str] = Query("title")
+    sort_by: Optional[str] = Query("title"),
+    school_id: str = Depends(get_school_id_from_header)
 ):
     """Get all books with optional filtering and sorting"""
-    filter_query = {}
+    filter_query = {"school_id": school_id}
     
     if search:
         filter_query["$or"] = [
