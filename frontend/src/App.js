@@ -62,8 +62,7 @@ function App() {
   const handleSchoolSelected = (schoolData) => {
     console.log("École sélectionnée:", schoolData);
     setCurrentSchool(schoolData);
-    setLoading(true); // Force le chargement
-    fetchData(); // Charger les données de l'école
+    // Le cache se chargera automatiquement des données
   };
 
   // Gérer la déconnexion
