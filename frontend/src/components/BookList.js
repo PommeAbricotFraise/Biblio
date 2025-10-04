@@ -155,7 +155,12 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
     }
 
     try {
-      await axios.delete(`${API}/books/${bookId}`);
+      const schoolCode = localStorage.getItem("school_code");
+      await axios.delete(`${API}/books/${bookId}`, {
+        headers: {
+          "X-School-Code": schoolCode
+        }
+      });
       toast.success("📚 Livre supprimé avec succès !");
       refreshData();
     } catch (error) {
