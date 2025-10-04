@@ -12,6 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
+import hashlib
 import io
 import pandas as pd
 from SPARQLWrapper import SPARQLWrapper, JSON as SPARQL_JSON
