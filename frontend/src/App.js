@@ -134,12 +134,23 @@ function App() {
           <h2 className="text-xl font-semibold text-gray-700 mt-4">
             Chargement des données de {currentSchool.school_name}...
           </h2>
-          <button
-            onClick={handleLogout}
-            className="mt-6 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
-          >
-            🔄 Problème de chargement ? Changer d'école
-          </button>
+          <div className="flex gap-4 mt-6">
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
+            >
+              🔄 Changer d'école
+            </button>
+            <button
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+            >
+              🧹 Réinitialiser complètement
+            </button>
+          </div>
         </div>
       </div>
     );
