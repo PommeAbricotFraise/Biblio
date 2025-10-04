@@ -39,16 +39,23 @@ const Navigation = ({ currentSchool, onLogout }) => {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-18">
           {/* Logo coloré et attirant */}
-          <div className="flex items-center space-x-4">
-            <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
-              <BookOpen className="h-8 w-8 text-white" />
-            </div>
+          <div className="flex items-center space-x-3">
+            <BookOpen className="h-10 w-10 text-white" />
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center">
-                <Sparkles className="h-6 w-6 mr-2 text-yellow-300" />
+              <h1 className="text-2xl font-bold text-white">
                 Bibliothèque Scolaire
               </h1>
-              <p className="text-white/80 text-sm">Système de gestion</p>
+              <div className="flex items-center space-x-2">
+                <School className="h-4 w-4 text-blue-200" />
+                <p className="text-blue-100 text-sm">
+                  {currentSchool?.school_name || "Aucune école"}
+                </p>
+                {currentSchool?.is_admin && (
+                  <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold">
+                    ADMIN
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
