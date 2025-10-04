@@ -444,11 +444,11 @@ async def update_book(book_id: str, book_update: BookUpdate):
     return Book(**book)
 
 @api_router.delete("/books/{book_id}")
-async def delete_book(book_id: str):
-    """Delete a book"""
-    result = await db.books.delete_one({"id": book_id})
+async def delete_book(book_id: str, school_id: str = Depends(get_school_id_from_header)):
+    """Delete a book from the school's collection"""
+    result = await db.books.delete_one({"id": book_id, "school_id": school_id})
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Livre non trouvé")
+        raise HTTPException(status_code=404, detail="Livre non trouvé dans cette école")
     return {"message": "Livre supprimé avec succès"}
 
 # Placard endpoints
