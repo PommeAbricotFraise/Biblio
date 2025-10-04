@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 import { validateSession, clearAllSessions } from "@/utils/sessionManager";
+import { useCache } from "@/hooks/useCache";
+import DataService from "@/services/DataService";
 
 // Components
 import Dashboard from "@/components/Dashboard";
