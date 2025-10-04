@@ -76,9 +76,10 @@ function App() {
     setShelves([]);
   };
 
-  // Fonction refresh avec authentification
+  // Fonction refresh avec invalidation du cache
   const refreshData = async () => {
-    await fetchData();
+    invalidateCache();
+    await refetch();
   };
 
   // Load data when school changes
