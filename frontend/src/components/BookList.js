@@ -176,6 +176,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
     setSelectedPlacard("__all__");
     setSelectedShelf("__all__");
     setSortBy("title");
+    setAdvancedSearchResults(null);
   };
 
   // Export Excel avec filtres actuels
