@@ -28,56 +28,35 @@ function App() {
   const [shelves, setShelves] = useState([]);
   const [currentSchool, setCurrentSchool] = useState(null);
   
-  // Configuration axios avec authentification
-  const getAxiosConfig = () => {
-    const schoolCode = localStorage.getItem("school_code");
-    if (!schoolCode) return {};
-    
-    return {
-      headers: {
-        "X-School-Code": schoolCode
-      }
-    };
+  // Fonction de chargement optimisée avec cache
+  const fetchSchoolData = async () => {
+    if (!currentSchool) return null;
+    return await DataService.getAllSchoolData();
   };
 
-  // Fetch initial data
-  const fetchData = async () => {
-    if (!currentSchool) return;
-    
-    try {
-      setLoading(true);
-      const config = getAxiosConfig();
-      
-      const [statsRes, booksRes, placardsRes, shelvesRes] = await Promise.all([
-        axios.get(`${API}/stats`, config),
-        axios.get(`${API}/books`, config),
-        axios.get(`${API}/placards`, config), 
-        axios.get(`${API}/shelves`, config)
-      ]);
-      
-      setStats(statsRes.data);
-      setBooks(booksRes.data);
-      setPlacards(placardsRes.data);
-      setShelves(shelvesRes.data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
-      
-      // Si erreur d'authentification, nettoyer la session
-      if (error.response?.status === 401) {
-        console.log("Session invalide, redirection vers sélection d'école");
-        handleLogout();
-        return;
-      }
-      
-      toast.error("Erreur lors du chargement des données");
-      setStats(null);
-      setBooks([]);
-      setPlacards([]);
-      setShelves([]);
-    } finally {
-      setLoading(false);
+  // Hook de cache pour les données de l'école
+  const {
+    data: schoolData,
+    loading,
+    error,
+    refetch,
+    invalidateCache
+  } = useCache(
+    'school_data',
+    fetchSchoolData,
+    [currentSchool?.school_id],
+    300000 // 5 minutes
+  );
+
+  // Mettre à jour les états quand les données arrivent
+  useEffect(() => {
+    if (schoolData) {
+      setStats(schoolData.stats || null);
+      setBooks(schoolData.books || []);
+      setPlacards(schoolData.placards || []);
+      setShelves(schoolData.shelves || []);
     }
-  };
+  }, [schoolData]);
   
   // Gérer la sélection d'école
   const handleSchoolSelected = (schoolData) => {
