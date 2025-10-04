@@ -650,8 +650,10 @@ async def export_books_excel(
     
     output.seek(0)
     
-    # Generate filename with current date
-    filename = f"ma_bibliotheque_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    # Generate filename with school name and current date
+    safe_school_name = "".join(c for c in school_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    safe_school_name = safe_school_name.replace(' ', '_')
+    filename = f"bibliotheque_{safe_school_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
     return StreamingResponse(
         io.BytesIO(output.read()),
