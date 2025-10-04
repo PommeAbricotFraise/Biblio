@@ -23,6 +23,7 @@ function App() {
   const [books, setBooks] = useState([]);
   const [placards, setPlacards] = useState([]);
   const [shelves, setShelves] = useState([]);
+  const [currentSchool, setCurrentSchool] = useState(null);
   
   // Fetch initial data
   const fetchData = async () => {
