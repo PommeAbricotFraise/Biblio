@@ -133,6 +133,7 @@ class Shelf(BaseModel):
     capacity: Optional[int] = None
     description: Optional[str] = ""
     date_created: datetime = Field(default_factory=datetime.utcnow)
+    school_id: str  # ID de l'école
 
 class ShelfCreate(BaseModel):
     name: str
