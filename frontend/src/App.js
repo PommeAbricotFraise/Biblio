@@ -85,9 +85,9 @@ function App() {
   // Load data when school changes
   useEffect(() => {
     if (currentSchool) {
-      fetchData();
+      refetch();
     }
-  }, [currentSchool]);
+  }, [currentSchool, refetch]);
   
   // refreshData function is now defined above with authentication
 
