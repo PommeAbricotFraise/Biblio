@@ -119,6 +119,12 @@ function App() {
           <h2 className="text-xl font-semibold text-gray-700 mt-4">
             Chargement des données de {currentSchool.school_name}...
           </h2>
+          <button
+            onClick={handleLogout}
+            className="mt-6 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
+          >
+            🔄 Problème de chargement ? Changer d'école
+          </button>
         </div>
       </div>
     );
