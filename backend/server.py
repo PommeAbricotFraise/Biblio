@@ -439,9 +439,10 @@ async def get_placards(school_id: str = Depends(get_school_id_from_header)):
     return [Placard(**placard) for placard in placards]
 
 @api_router.post("/placards", response_model=Placard)
-async def create_placard(placard: PlacardCreate):
+async def create_placard(placard: PlacardCreate, school_id: str = Depends(get_school_id_from_header)):
     """Create a new placard"""
     placard_dict = placard.dict()
+    placard_dict["school_id"] = school_id  # Ajouter l'ID de l'école
     placard_obj = Placard(**placard_dict)
     await db.placards.insert_one(placard_obj.dict())
     return placard_obj
