@@ -33,12 +33,28 @@ const SchoolSelector = ({ onSchoolSelected }) => {
     if (savedSchool) {
       try {
         const school = JSON.parse(savedSchool);
-        onSchoolSelected(school);
+        // Vérifier que l'école existe toujours
+        validateSchool(school);
       } catch (e) {
         localStorage.removeItem("current_school");
+        localStorage.removeItem("school_code");
       }
     }
   }, [onSchoolSelected]);
+
+  // Valider qu'une école existe toujours
+  const validateSchool = async (school) => {
+    try {
+      const response = await axios.get(`${API}/schools/${school.school_code}`);
+      if (response.data) {
+        onSchoolSelected(school);
+      }
+    } catch (error) {
+      console.log("École non trouvée, suppression de la session");
+      localStorage.removeItem("current_school");
+      localStorage.removeItem("school_code");
+    }
+  };
 
   // Rechercher les infos d'une école par son code
   const handleSearchSchool = async () => {
