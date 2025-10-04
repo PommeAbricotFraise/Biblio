@@ -88,8 +88,6 @@ function App() {
       refetch();
     }
   }, [currentSchool, refetch]);
-  
-  // refreshData function is now defined above with authentication
 
   // Vérifier la session au chargement
   useEffect(() => {
