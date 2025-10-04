@@ -68,9 +68,33 @@ function App() {
     }
   };
   
+  // Gérer la sélection d'école
+  const handleSchoolSelected = (schoolData) => {
+    setCurrentSchool(schoolData);
+    fetchData(); // Charger les données de l'école
+  };
+
+  // Gérer la déconnexion
+  const handleLogout = () => {
+    localStorage.removeItem("current_school");
+    localStorage.removeItem("school_code");
+    setCurrentSchool(null);
+    setBooks([]);
+    setPlacards([]);
+    setShelves([]);
+  };
+
+  // Fonction refresh avec authentification
+  const refreshData = async () => {
+    await fetchData();
+  };
+
+  // Load data when school changes
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (currentSchool) {
+      fetchData();
+    }
+  }, [currentSchool]);
   
   // Refresh data function to be passed to child components
   const refreshData = () => {
