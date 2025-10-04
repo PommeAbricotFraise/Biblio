@@ -465,9 +465,9 @@ async def delete_placard(placard_id: str):
 
 # Shelf endpoints
 @api_router.get("/shelves", response_model=List[Shelf])
-async def get_shelves(placard_name: Optional[str] = Query(None)):
+async def get_shelves(placard_name: Optional[str] = Query(None), school_id: str = Depends(get_school_id_from_header)):
     """Get all shelves, optionally filtered by placard"""
-    filter_query = {}
+    filter_query = {"school_id": school_id}
     if placard_name:
         filter_query["placard_name"] = placard_name
     
