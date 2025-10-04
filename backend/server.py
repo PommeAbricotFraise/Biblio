@@ -504,16 +504,20 @@ async def create_shelf(shelf: ShelfCreate, school_id: str = Depends(get_school_i
     return shelf_obj
 
 @api_router.delete("/shelves/{shelf_id}")
-async def delete_shelf(shelf_id: str):
-    """Delete a shelf and all its books"""
-    shelf = await db.shelves.find_one({"id": shelf_id})
+async def delete_shelf(shelf_id: str, school_id: str = Depends(get_school_id_from_header)):
+    """Delete a shelf and all its books from the school"""
+    shelf = await db.shelves.find_one({"id": shelf_id, "school_id": school_id})
     if not shelf:
-        raise HTTPException(status_code=404, detail="Étagère non trouvée")
+        raise HTTPException(status_code=404, detail="Étagère non trouvée dans cette école")
     
-    # Delete all books on this shelf
-    await db.books.delete_many({"shelf": shelf["name"], "placard": shelf["placard_name"]})
+    # Delete all books on this shelf (for this school only)
+    await db.books.delete_many({
+        "shelf": shelf["name"], 
+        "placard": shelf["placard_name"],
+        "school_id": school_id
+    })
     # Delete the shelf
-    await db.shelves.delete_one({"id": shelf_id})
+    await db.shelves.delete_one({"id": shelf_id, "school_id": school_id})
     
     return {"message": "Étagère et tous les livres associés supprimés avec succès"}
 
