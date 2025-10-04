@@ -468,20 +468,20 @@ async def create_placard(placard: PlacardCreate, school_id: str = Depends(get_sc
     return placard_obj
 
 @api_router.delete("/placards/{placard_id}")
-async def delete_placard(placard_id: str):
-    """Delete a placard and all its books"""
-    placard = await db.placards.find_one({"id": placard_id})
+async def delete_placard(placard_id: str, school_id: str = Depends(get_school_id_from_header)):
+    """Delete a placard and all its books from the school"""
+    placard = await db.placards.find_one({"id": placard_id, "school_id": school_id})
     if not placard:
-        raise HTTPException(status_code=404, detail="Placard non trouvé")
+        raise HTTPException(status_code=404, detail="Rangement non trouvé dans cette école")
     
-    # Delete all books in this placard
-    await db.books.delete_many({"placard": placard["name"]})
-    # Delete all shelves in this placard
-    await db.shelves.delete_many({"placard_name": placard["name"]})
+    # Delete all books in this placard (for this school only)
+    await db.books.delete_many({"placard": placard["name"], "school_id": school_id})
+    # Delete all shelves in this placard (for this school only)
+    await db.shelves.delete_many({"placard_name": placard["name"], "school_id": school_id})
     # Delete the placard
-    await db.placards.delete_one({"id": placard_id})
+    await db.placards.delete_one({"id": placard_id, "school_id": school_id})
     
-    return {"message": "Placard et toutes les données associées supprimés avec succès"}
+    return {"message": "Rangement et toutes les données associées supprimés avec succès"}
 
 # Shelf endpoints
 @api_router.get("/shelves", response_model=List[Shelf])
