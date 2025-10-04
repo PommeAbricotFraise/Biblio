@@ -33,6 +33,32 @@ app = FastAPI(title="Système de Gestion de Bibliothèque", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 
+# Modèles Pydantic
+
+# École
+class School(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    code: str  # Code d'accès unique (ex: "ECOLE123")
+    admin_password: str  # Mot de passe administrateur hashé
+    address: Optional[str] = ""
+    phone: Optional[str] = ""
+    email: Optional[str] = ""
+    created_date: datetime = Field(default_factory=datetime.utcnow)
+    active: bool = True
+
+class SchoolCreate(BaseModel):
+    name: str
+    code: str
+    admin_password: str
+    address: Optional[str] = ""
+    phone: Optional[str] = ""
+    email: Optional[str] = ""
+
+class SchoolLogin(BaseModel):
+    code: str
+    password: Optional[str] = ""  # Optionnel pour accès simple
+
 # Define Models
 class Book(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
