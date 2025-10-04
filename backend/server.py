@@ -394,9 +394,10 @@ async def get_books(
     return [Book(**book) for book in books]
 
 @api_router.post("/books", response_model=Book)
-async def create_book(book: BookCreate):
+async def create_book(book: BookCreate, school_id: str = Depends(get_school_id_from_header)):
     """Create a new book"""
     book_dict = book.dict()
+    book_dict["school_id"] = school_id  # Ajouter l'ID de l'école
     book_obj = Book(**book_dict)
     await db.books.insert_one(book_obj.dict())
     return book_obj
