@@ -303,7 +303,7 @@ const BookList = ({ books = [], placards = [], shelves = [], refreshData, curren
       {/* Filtres simplifiés et colorés */}
       <Card className="library-card hover-lift">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
             {/* Barre de recherche améliorée */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-purple-400" />
