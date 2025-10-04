@@ -111,13 +111,19 @@ function App() {
 
   // Vérifier la session au chargement
   useEffect(() => {
+    // Validation des données de session
+    if (!validateSession()) {
+      return; // clearAllSessions() déjà appelé dans validateSession
+    }
+    
     const savedSchool = localStorage.getItem("current_school");
     if (savedSchool) {
       try {
         const school = JSON.parse(savedSchool);
         setCurrentSchool(school);
       } catch (e) {
-        localStorage.clear();
+        console.log('Erreur parsing session, nettoyage...');
+        clearAllSessions();
       }
     }
   }, []);
