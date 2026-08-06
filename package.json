@@ -1,0 +1,38 @@
+{
+  "name": "biblio-rians",
+  "version": "0.1.1",
+  "description": "Logiciel desktop pour gestion de bibliotheque scolaire",
+  "main": "electron-main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.biblio-rians.app",
+    "productName": "Biblio-rians",
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "renderer/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

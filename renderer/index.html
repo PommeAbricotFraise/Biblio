@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Biblio-rians - Bibliotheque scolaire</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <section id="lockScreen" class="lock-screen hidden">
+      <div class="lock-box">
+        <h1>🌈📚 Biblio-rians</h1>
+        <p>Cette bibliotheque est protegee par un mot de passe.</p>
+        <form id="lockForm">
+          <input id="lockPassword" type="password" placeholder="Mot de passe" autocomplete="current-password" autofocus />
+          <button type="submit">Deverrouiller</button>
+        </form>
+        <p id="lockError" class="lock-error hidden">Mot de passe incorrect.</p>
+      </div>
+    </section>
+    <div class="rainbow-bar"></div>
+    <header class="app-header">
+      <div>
+        <h1>🌈📚 Biblio-rians <span id="libraryBadge" class="library-badge">Primaire</span></h1>
+        <p>Gestion joyeuse pour bibliotheque primaire et maternelle ✨</p>
+      </div>
+      <div class="actions">
+        <label class="library-switch">
+          <select id="librarySelect">
+            <option value="primaire">Primaire</option>
+            <option value="maternelle">Maternelle</option>
+          </select>
+        </label>
+        <button id="manageLibraryBtn" type="button">Bases</button>
+        <button id="openAddTab">Ajouter</button>
+        <button id="openExport">Exporter</button>
+        <button id="openImport">Importer</button>
+        <input id="importQuickInput" type="file" accept=".json,.xlsx,.xls,.sqlite3,.db" class="file-hidden" />
+      </div>
+    </header>
+
+    <div class="hero-banner">
+      <div>🧒🎒 Des livres, des sourires, et des classes qui grandissent !</div>
+      <div>🦋🌟 Une bibliotheque qui donne envie d'apprendre</div>
+    </div>
+
+    <nav class="tabs">
+      <button data-tab="books" class="active">Livres</button>
+      <button data-tab="students">Eleves</button>
+      <button data-tab="loans">Emprunts</button>
+    </nav>
+
+    <main>
+      <section id="tab-books" class="tab active">
+        <div class="panel">
+          <h2>Ajouter un livre</h2>
+          <form id="bookForm" class="form-grid">
+            <input name="isbn" placeholder="ISBN" />
+            <button type="button" id="lookupIsbnBtn" class="lookup-btn">🔎 Chercher ISBN</button>
+            <div class="cover-box">
+              <img id="bookCover" alt="Couverture" src="" />
+              <div id="coverPlaceholder">📗 Couverture</div>
+              <div id="coverLoader" class="cover-loader hidden">Recherche...</div>
+              <div id="coverEmpty" class="cover-empty hidden">Pas de couverture</div>
+            </div>
+            <input name="title" placeholder="Titre" required />
+            <input name="author" placeholder="Auteur" />
+            <input name="year" placeholder="Annee" type="number" />
+            <input name="copies" placeholder="Exemplaires" type="number" value="1" min="1" />
+            <input name="numero" placeholder="Numero (optionnel)" />
+            <input name="location" placeholder="Emplacement" />
+            <button type="submit">Ajouter</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Catalogue</h2>
+          <input id="bookSearch" class="table-search" type="search" placeholder="Rechercher un livre (titre, auteur, ISBN)..." />
+          <table class="rainbow-table">
+            <thead>
+              <tr>
+                <th><button type="button" class="book-sort" data-sort="title">Titre <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="author">Auteur <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="year">Annee <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="isbn">ISBN <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="copies">Ex. <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="available">Dispo <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="on_loan">En pret <span class="sort-indicator"></span></button></th>
+                <th>Numero</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="booksTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tab-students" class="tab">
+        <div class="panel card-green">
+          <div class="panel-header panel-header-inline">
+            <h2>Classes</h2>
+            <button type="button" id="addClassBtn" class="section-add-btn section-add-btn--class">Ajouter une classe</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Annee</th>
+                <th>Professeur</th>
+                <th>Niveau</th>
+                <th>Classe</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="classesTable"></tbody>
+          </table>
+        </div>
+        <div class="panel card-pink">
+          <div class="panel-header panel-header-inline">
+            <h2>Eleves</h2>
+            <button type="button" id="addStudentBtn" class="section-add-btn section-add-btn--student">Ajouter un eleve</button>
+          </div>
+          <input id="studentSearch" class="table-search" type="search" placeholder="Rechercher un eleve (nom, prenom)..." />
+          <table>
+            <thead>
+              <tr>
+                <th>Annee scolaire</th>
+                <th>Classe</th>
+                <th>Nom</th>
+                <th>Prenom</th>
+                <th>Naissance</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="studentsTable"></tbody>
+          </table>
+        </div>
+        <div class="panel card-blue">
+          <div class="panel-header panel-header-inline">
+            <h2>Annees scolaires</h2>
+            <button type="button" id="addSchoolYearBtn" class="section-add-btn section-add-btn--year">Ajouter une annee</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Annee</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="yearsTable"></tbody>
+          </table>
+        </div>
+        <div class="panel close-year-warning">
+          <div class="close-year-content">
+            <div>
+              <h2>Cloturer l'annee</h2>
+              <p class="close-year-text">Action irreversible. Verifiez vos donnees avant de continuer.</p>
+            </div>
+            <button id="closeYearBtn" class="close-year-btn">Cloturer l'annee</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="addModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="panel-header">
+            <h2 id="addModalTitle">Ajouter</h2>
+            <button id="closeAddModal" class="ghost">Fermer</button>
+          </div>
+          <div id="addSelector" class="add-selector">
+            <label>
+              Que voulez-vous ajouter ?
+              <div class="add-choice">
+                <button type="button" class="add-choice-btn active" data-add="school_year">Annee scolaire</button>
+                <button type="button" class="add-choice-btn" data-add="class">Classe</button>
+                <button type="button" class="add-choice-btn" data-add="student">Eleve</button>
+              </div>
+            </label>
+          </div>
+          <div class="add-forms">
+            <form id="schoolYearForm" class="form-grid" data-form="school_year">
+              <input name="name" placeholder="Annee scolaire (ex: 2024-2025)" required />
+              <button type="submit">Enregistrer l'annee</button>
+            </form>
+            <form id="classForm" class="form-grid hidden" data-form="class">
+              <select name="school_year_id" id="classYearSelect" required></select>
+              <input name="teacher_name" placeholder="Nom du professeur" required />
+              <input name="level" placeholder="Niveau scolaire" required />
+              <div class="form-hint">Le nom de classe est genere automatiquement.</div>
+              <button type="submit">Enregistrer la classe</button>
+            </form>
+            <form id="studentForm" class="form-grid hidden" data-form="student">
+              <select name="class_id" id="studentClassSelect" required></select>
+              <input name="last_name" placeholder="Nom" required />
+              <input name="first_name" placeholder="Prenom" required />
+              <input name="birth_year" placeholder="Annee de naissance" type="number" />
+              <button type="submit">Enregistrer l'eleve</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="manageLibraryModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="panel-header">
+            <h2>Gerer les bases</h2>
+            <button id="manageLibraryClose" class="ghost" type="button">Fermer</button>
+          </div>
+          <div class="confirm-actions" style="justify-content: flex-start;">
+            <button id="libraryActionCreate" type="button">Creer une base</button>
+            <button id="libraryActionRename" type="button">Renommer la base active</button>
+            <button id="libraryActionDelete" type="button" class="close-year-btn">Supprimer la base active</button>
+          </div>
+          <div class="confirm-actions" style="justify-content: flex-start; margin-top: 10px;">
+            <button id="authSetBtn" type="button">Definir un mot de passe</button>
+            <button id="authRemoveBtn" type="button">Retirer le mot de passe</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="exportModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+          <div class="panel-header">
+            <h2>Exporter</h2>
+            <button id="exportClose" class="ghost">Fermer</button>
+          </div>
+          <form id="exportForm">
+            <div class="export-header">
+              <label class="export-format">
+                Format
+                <select id="exportFormat">
+                  <option value="json">JSON</option>
+                  <option value="xlsx">Excel (XLSX)</option>
+                </select>
+              </label>
+              <div class="export-note">Choisissez les donnees et les champs a exporter.</div>
+            </div>
+            <div class="export-grid">
+              <div class="panel subpanel export-card">
+                <div class="export-card-head">
+                  <h3>Jeux de donnees</h3>
+                  <div class="export-actions">
+                    <button type="button" class="export-toggle" data-target="#exportDatasets" data-action="all">Tout</button>
+                    <button type="button" class="export-toggle" data-target="#exportDatasets" data-action="none">Aucun</button>
+                  </div>
+                </div>
+                <div id="exportDatasets" class="export-options">
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="books" checked /> Livres</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="students" checked /> Eleves</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="classes" checked /> Classes</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="school_years" checked /> Annees scolaires</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="loans" checked /> Emprunts</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="student_history" checked /> Historique eleves</label>
+                </div>
+              </div>
+              <div class="panel subpanel export-card">
+                <div class="export-card-head">
+                  <h3>Champs</h3>
+                  <div class="export-actions">
+                    <button type="button" class="export-toggle" data-target="#exportFields" data-action="all">Tout</button>
+                    <button type="button" class="export-toggle" data-target="#exportFields" data-action="none">Aucun</button>
+                  </div>
+                </div>
+                <div id="exportFields" class="export-options export-fields">
+                  <div class="field-group">
+                  <div class="field-group-title">Livres</div>
+                  <label class="checkbox"><input type="checkbox" data-field="books.title" checked /> Titre</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.author" checked /> Auteur</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.isbn" checked /> ISBN</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.year" checked /> Annee</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.copies" checked /> Exemplaires</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.numero" checked /> Numero</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.location" checked /> Emplacement</label>
+                </div>
+                <div class="field-group">
+                  <div class="field-group-title">Eleves</div>
+                  <label class="checkbox"><input type="checkbox" data-field="students.student_name" checked /> Eleve</label>
+                  <label class="checkbox"><input type="checkbox" data-field="students.class_name" checked /> Classe</label>
+                  <label class="checkbox"><input type="checkbox" data-field="students.school_year" checked /> Annee scolaire</label>
+                  <label class="checkbox"><input type="checkbox" data-field="students.birth_year" checked /> Naissance</label>
+                </div>
+                <div class="field-group">
+                  <div class="field-group-title">Classes</div>
+                  <label class="checkbox"><input type="checkbox" data-field="classes.name" checked /> Classe</label>
+                  <label class="checkbox"><input type="checkbox" data-field="classes.teacher_name" checked /> Professeur</label>
+                  <label class="checkbox"><input type="checkbox" data-field="classes.level" checked /> Niveau</label>
+                  <label class="checkbox"><input type="checkbox" data-field="classes.school_year" checked /> Annee</label>
+                </div>
+                <div class="field-group">
+                  <div class="field-group-title">Annees scolaires</div>
+                  <label class="checkbox"><input type="checkbox" data-field="school_years.name" checked /> Annee</label>
+                </div>
+                <div class="field-group">
+                  <div class="field-group-title">Emprunts</div>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.book_title" checked /> Livre</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.student_name" checked /> Eleve</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.loan_date" checked /> Date emprunt</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.due_date" checked /> Retour prevu</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.return_date" checked /> Retour</label>
+                </div>
+                <div class="field-group">
+                  <div class="field-group-title">Historique eleves</div>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.student_name" checked /> Eleve</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.class_name" checked /> Classe</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.school_year" checked /> Annee</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.teacher_name" checked /> Professeur</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.level" checked /> Niveau</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.start_date" checked /> Debut</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.end_date" checked /> Fin</label>
+                </div>
+                </div>
+              </div>
+            </div>
+            <div class="export-footer">
+              <button type="submit">Exporter</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section id="importModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+          <div class="panel-header">
+            <h2>Importer</h2>
+            <button id="importClose" class="ghost">Fermer</button>
+          </div>
+          <form id="importForm">
+            <div class="form-grid">
+              <label>
+                Format
+                <select id="importFormat">
+                  <option value="json">JSON</option>
+                  <option value="xlsx">Excel (XLSX)</option>
+                </select>
+              </label>
+              <label>
+                Fichier
+                <input id="importFile" type="file" accept=".json,.xlsx" />
+              </label>
+            </div>
+            <div class="panel subpanel">
+              <h3>Jeux de donnees</h3>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="books" checked /> Livres</label>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="students" checked /> Eleves</label>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="classes" checked /> Classes</label>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="school_years" checked /> Annees scolaires</label>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="loans" checked /> Emprunts</label>
+              <label class="checkbox"><input type="checkbox" name="importDataset" value="student_history" checked /> Historique eleves</label>
+            </div>
+            <button type="submit">Importer</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="closeYearModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+          <div class="panel-header">
+            <h2>Cloturer une annee</h2>
+            <button id="closeYearClose" class="ghost">Fermer</button>
+          </div>
+          <form id="closeYearForm">
+            <div class="form-grid">
+              <select id="closeYearCurrent" name="current_year_id" required></select>
+              <input id="closeYearNext" name="next_year_name" placeholder="Nouvelle annee (ex: 2025-2026)" required />
+            </div>
+            <div class="panel subpanel">
+              <h3>Classes et passages</h3>
+              <div id="closeYearClasses"></div>
+            </div>
+            <button type="submit">Cloturer l'annee</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="closeYearConfirmModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="panel-header">
+            <h2>Confirmation</h2>
+            <button id="closeYearConfirmClose" class="ghost">Fermer</button>
+          </div>
+          <p class="close-year-text">Vous etes sur le point de cloturer l'annee. Cette action est irreversible.</p>
+          <div class="confirm-actions">
+            <button id="closeYearConfirmNo" class="ghost">Annuler</button>
+            <button id="closeYearConfirmYes" class="close-year-btn">Oui, cloturer</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="historyModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="panel-header">
+            <h2>Historique de l'eleve</h2>
+            <button id="historyClose" class="ghost">Fermer</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Annee</th>
+                <th>Classe</th>
+                <th>Professeur</th>
+                <th>Niveau</th>
+                <th>Debut</th>
+                <th>Fin</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="bookPreviewModal" class="modal hidden">
+        <div class="modal-content book-preview">
+          <div class="panel-header">
+            <h2 id="bookPreviewTitle">Livre</h2>
+            <button id="bookPreviewClose" class="ghost">Fermer</button>
+          </div>
+          <div class="book-preview-body">
+            <div class="book-preview-cover">
+              <img id="bookPreviewImg" alt="Couverture" />
+              <div id="bookPreviewCoverPlaceholder">Pas de couverture</div>
+              <div id="bookPreviewCoverLoader" class="book-preview-loader hidden">Chargement...</div>
+            </div>
+            <div class="book-preview-info">
+              <div id="bookPreviewMeta" class="book-preview-meta"></div>
+              <div class="book-preview-stats">
+                <div>Exemplaires: <strong id="bookPreviewCopies"></strong></div>
+                <div>Dispo: <strong id="bookPreviewAvailable"></strong></div>
+                <div>En pret: <strong id="bookPreviewOnLoan"></strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-loans" class="tab">
+        <div class="panel">
+          <h2>Scanner un livre</h2>
+          <form id="loanForm" class="loan-form">
+            <div class="loan-flow">
+              <div class="loan-step">
+                <h3>1. Choisir la classe</h3>
+                <select id="loanClass"></select>
+                <div id="loanClassBadge" class="class-badge">Classe: Toutes</div>
+                <h3>2. Choisir l'eleve</h3>
+                <select name="student_id" id="loanStudent"></select>
+                <div id="loanStudentBadge" class="student-badge">Eleve: Aucun</div>
+              </div>
+              <div class="loan-step">
+                <h3>3. Scanner le livre</h3>
+                <input id="loanIsbn" class="loan-input-big" placeholder="ISBN scanne" autofocus />
+                <div class="loan-help">Astuce: vous pouvez scanner avant OU apres l'eleve.</div>
+                <div id="loanSelectedBook" class="loan-selected">📘 Aucun livre selectionne</div>
+                <select name="book_id" id="loanBook"></select>
+              </div>
+              <div class="loan-step">
+                <h3>4. Valider l'emprunt</h3>
+                <label class="loan-due-label">Retour prevu le
+                  <input type="date" id="loanDueDate" name="due_date" />
+                </label>
+                <div class="loan-help">Retour: supprimez dans Emprunts ou choisissez la classe et scannez le livre.</div>
+                <button type="submit" id="loanSubmitBtn" class="loan-submit">Valider l'emprunt</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Emprunts</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Livre</th>
+                <th>Eleve</th>
+                <th>Date</th>
+                <th>Retour prevu</th>
+                <th>Retour</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="loansTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer id="statusBar">Pret.</footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
