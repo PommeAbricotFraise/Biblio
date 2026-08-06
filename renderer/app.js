@@ -48,6 +48,95 @@ if (lockForm) {
 
 initAuthLock();
 
+/* ---------- Toasts ---------- */
+const toastStack = document.getElementById('toastStack');
+function showToast(type, title, message) {
+  if (!toastStack) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type === 'err' ? ' err' : '');
+  const iconRef = type === 'err' ? '#i-alert' : '#i-check';
+  toast.innerHTML = `
+    <span class="t-icon"><svg class="icon"><use href="${iconRef}"/></svg></span>
+    <div><strong>${escapeHtml(title)}</strong><span class="t-msg">${escapeHtml(message || '')}</span></div>
+  `;
+  toastStack.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity .2s ease';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 220);
+  }, 4500);
+}
+
+/* ---------- Confirm dialog (replaces window.confirm) ---------- */
+const confirmDialogOverlay = document.getElementById('confirmDialogOverlay');
+const confirmDialogTitle = document.getElementById('confirmDialogTitle');
+const confirmDialogMessage = document.getElementById('confirmDialogMessage');
+const confirmDialogCancel = document.getElementById('confirmDialogCancel');
+const confirmDialogConfirm = document.getElementById('confirmDialogConfirm');
+
+function confirmDialog(options) {
+  const opts = options || {};
+  return new Promise((resolve) => {
+    if (!confirmDialogOverlay) {
+      resolve(window.confirm(opts.message || 'Confirmer ?'));
+      return;
+    }
+    confirmDialogTitle.textContent = opts.title || 'Confirmer';
+    confirmDialogMessage.textContent = opts.message || '';
+    confirmDialogConfirm.innerHTML = `<svg class="icon"><use href="#i-check"/></svg>${escapeHtml(opts.confirmLabel || 'Confirmer')}`;
+    confirmDialogOverlay.classList.remove('hidden');
+
+    function cleanup(result) {
+      confirmDialogOverlay.classList.add('hidden');
+      confirmDialogConfirm.removeEventListener('click', onConfirm);
+      confirmDialogCancel.removeEventListener('click', onCancel);
+      confirmDialogOverlay.removeEventListener('click', onOverlay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onConfirm() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onOverlay(event) { if (event.target === confirmDialogOverlay) cleanup(false); }
+    function onKey(event) { if (event.key === 'Escape') cleanup(false); }
+
+    confirmDialogConfirm.addEventListener('click', onConfirm);
+    confirmDialogCancel.addEventListener('click', onCancel);
+    confirmDialogOverlay.addEventListener('click', onOverlay);
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => confirmDialogCancel.focus(), 50);
+  });
+}
+
+/* ---------- Font size & contrast ---------- */
+const FONT_SCALES = [0.9, 1, 1.15, 1.3];
+let fontStep = Number(localStorage.getItem('biblio_font_step') || '1');
+if (!FONT_SCALES[fontStep]) fontStep = 1;
+function applyFontScale() {
+  document.documentElement.style.setProperty('--font-scale', FONT_SCALES[fontStep]);
+  localStorage.setItem('biblio_font_step', String(fontStep));
+}
+applyFontScale();
+const fontDecBtn = document.getElementById('fontDecBtn');
+const fontResetBtn = document.getElementById('fontResetBtn');
+const fontIncBtn = document.getElementById('fontIncBtn');
+if (fontDecBtn) fontDecBtn.addEventListener('click', () => { fontStep = Math.max(0, fontStep - 1); applyFontScale(); });
+if (fontResetBtn) fontResetBtn.addEventListener('click', () => { fontStep = 1; applyFontScale(); });
+if (fontIncBtn) fontIncBtn.addEventListener('click', () => { fontStep = Math.min(FONT_SCALES.length - 1, fontStep + 1); applyFontScale(); });
+
+let highContrast = localStorage.getItem('biblio_contrast') === 'high';
+function applyContrast() {
+  document.documentElement.setAttribute('data-contrast', highContrast ? 'high' : 'normal');
+  localStorage.setItem('biblio_contrast', highContrast ? 'high' : 'normal');
+}
+applyContrast();
+const contrastToggleBtn = document.getElementById('contrastToggleBtn');
+if (contrastToggleBtn) {
+  contrastToggleBtn.addEventListener('click', () => {
+    highContrast = !highContrast;
+    applyContrast();
+  });
+}
+
 const statusBar = document.getElementById('statusBar');
 const librarySelect = document.getElementById('librarySelect');
 const libraryBadge = document.getElementById('libraryBadge');
@@ -66,6 +155,7 @@ const importQuickInput = document.getElementById('importQuickInput');
 
 const tabs = document.querySelectorAll('.tabs button');
 const tabSections = {
+  home: document.getElementById('tab-home'),
   books: document.getElementById('tab-books'),
   students: document.getElementById('tab-students'),
   loans: document.getElementById('tab-loans')
@@ -233,6 +323,19 @@ if (addClassBtn) {
 
 if (addStudentBtn) {
   addStudentBtn.addEventListener('click', () => openAddModalFor('student', { showChoices: false }));
+}
+
+const emptyAddStudentBtn = document.getElementById('emptyAddStudentBtn');
+if (emptyAddStudentBtn) {
+  emptyAddStudentBtn.addEventListener('click', () => openAddModalFor('student', { showChoices: false }));
+}
+const emptyAddClassBtn = document.getElementById('emptyAddClassBtn');
+if (emptyAddClassBtn) {
+  emptyAddClassBtn.addEventListener('click', () => openAddModalFor('class', { showChoices: false }));
+}
+const emptyAddYearBtn = document.getElementById('emptyAddYearBtn');
+if (emptyAddYearBtn) {
+  emptyAddYearBtn.addEventListener('click', () => openAddModalFor('school_year', { showChoices: false }));
 }
 
 if (addSchoolYearBtn) {
@@ -829,8 +932,13 @@ closeYearForm.addEventListener('submit', async (event) => {
 
 function setStatus(message, isError) {
   statusBar.textContent = message;
-  statusBar.style.background = isError ? '#7a1d1d' : '#1f2a2e';
-  if (isError) playErrorSound();
+  const inProgress = /\.\.\.$/.test(String(message || '').trim());
+  if (isError) {
+    playErrorSound();
+    showToast('err', 'Un probleme est survenu', message);
+  } else if (!inProgress) {
+    showToast('ok', 'Termine', message);
+  }
 }
 
 function playSuccessSound() {
@@ -1009,7 +1117,7 @@ async function attemptAutoReturn(book, cleanIsbn) {
 
 function updateSelectedBook(book) {
   if (!book) {
-    loanSelectedBook.textContent = '📘 Aucun livre selectionne';
+    loanSelectedBook.textContent = 'Aucun livre selectionne';
     loanSelectedBook.classList.remove('loan-selected--ok');
     loanSelectedBook.classList.add('loan-selected--none');
     return;
@@ -1127,6 +1235,47 @@ async function refreshAll() {
   await Promise.all([refreshBooks(), refreshYears(), refreshClasses(), refreshStudents(), refreshLoans()]);
 }
 
+function updateHomeDashboard() {
+  const statBooks = document.getElementById('homeStatBooks');
+  const statStudents = document.getElementById('homeStatStudents');
+  const statOverdue = document.getElementById('homeStatOverdue');
+  const statOverdueCard = document.getElementById('homeStatOverdueCard');
+  const tileOverdueText = document.getElementById('homeTileOverdueText');
+  if (statBooks) statBooks.textContent = String(cachedBooks.length);
+  if (statStudents) statStudents.textContent = String(cachedStudents.length);
+  const overdueCount = cachedLoans.filter(isLoanOverdue).length;
+  if (statOverdue) statOverdue.textContent = String(overdueCount);
+  if (statOverdueCard) statOverdueCard.classList.toggle('hidden', overdueCount === 0);
+  if (tileOverdueText) {
+    tileOverdueText.textContent = overdueCount === 0
+      ? 'Aucun pret en retard actuellement.'
+      : `${overdueCount} livre${overdueCount > 1 ? 's' : ''} a reclamer.`;
+  }
+}
+
+const homeTileLoan = document.getElementById('homeTileLoan');
+const homeTileAddBook = document.getElementById('homeTileAddBook');
+const homeTileAddStudent = document.getElementById('homeTileAddStudent');
+const homeTileCatalogue = document.getElementById('homeTileCatalogue');
+const homeTileOverdue = document.getElementById('homeTileOverdue');
+const homeTileStats = document.getElementById('homeTileStats');
+
+if (homeTileLoan) homeTileLoan.addEventListener('click', () => setActiveTab('loans'));
+if (homeTileAddBook) homeTileAddBook.addEventListener('click', () => setActiveTab('books'));
+if (homeTileAddStudent) homeTileAddStudent.addEventListener('click', () => {
+  setActiveTab('students');
+  openAddModalFor('student', { showChoices: false });
+});
+if (homeTileCatalogue) homeTileCatalogue.addEventListener('click', () => setActiveTab('books'));
+if (homeTileOverdue) homeTileOverdue.addEventListener('click', () => {
+  showOverdueOnly = true;
+  setActiveTab('loans');
+  refreshLoans();
+});
+if (homeTileStats) homeTileStats.addEventListener('click', () => {
+  showToast('ok', 'Bientot disponible', 'Les statistiques arriveront dans une prochaine mise a jour.');
+});
+
 async function refreshYears() {
   const years = await window.api.yearsList();
   const filterYear = document.getElementById('filterYear');
@@ -1140,6 +1289,17 @@ async function refreshYears() {
 
   classYearSelect.innerHTML = '<option value="">Choisir une annee scolaire</option>'
     + years.map((y) => `<option value="${y.id}">${escapeHtml(y.name)}</option>`).join('');
+
+  const yearsEmptyState = document.getElementById('yearsEmptyState');
+  if (yearsEmptyState) {
+    if (years.length === 0) {
+      yearsTable.parentElement.classList.add('hidden');
+      yearsEmptyState.classList.remove('hidden');
+    } else {
+      yearsTable.parentElement.classList.remove('hidden');
+      yearsEmptyState.classList.add('hidden');
+    }
+  }
 
   yearsTable.innerHTML = '';
   years.forEach((y) => {
@@ -1187,6 +1347,17 @@ async function refreshClasses() {
       return `<option value="${c.id}">${escapeHtml(label)}</option>`;
     }).join('');
 
+  const classesEmptyState = document.getElementById('classesEmptyState');
+  if (classesEmptyState) {
+    if (filteredClasses.length === 0) {
+      classesTable.parentElement.classList.add('hidden');
+      classesEmptyState.classList.remove('hidden');
+    } else {
+      classesTable.parentElement.classList.remove('hidden');
+      classesEmptyState.classList.add('hidden');
+    }
+  }
+
   classesTable.innerHTML = '';
   filteredClasses.forEach((c) => {
     const row = document.createElement('tr');
@@ -1229,15 +1400,37 @@ async function refreshBooks() {
   const books = await window.api.booksList();
   cachedBooks = books;
   const table = document.getElementById('booksTable');
+  const tableEl = document.getElementById('booksTableEl');
+  const emptyState = document.getElementById('booksEmptyState');
   table.innerHTML = '';
   updateBookSortIndicators();
   const sortedBooks = sortBooks(filterBooksBySearch([...books]));
+  if (tableEl && emptyState) {
+    const isSearching = bookSearchInput && bookSearchInput.value.trim();
+    const emptyBtn = document.getElementById('emptyAddBookBtn');
+    if (books.length === 0) {
+      tableEl.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.querySelector('h3').textContent = 'Aucun livre pour l\'instant';
+      emptyState.querySelector('p').textContent = 'Cette bibliotheque n\'a pas encore de livre enregistre. Ajoutez le premier pour commencer.';
+      if (emptyBtn) emptyBtn.classList.remove('hidden');
+    } else if (sortedBooks.length === 0 && isSearching) {
+      tableEl.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      emptyState.querySelector('h3').textContent = 'Aucun resultat';
+      emptyState.querySelector('p').textContent = 'Aucun livre ne correspond a votre recherche.';
+      if (emptyBtn) emptyBtn.classList.add('hidden');
+    } else {
+      tableEl.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+    }
+  }
   sortedBooks.forEach((b) => {
     const available = Math.max(0, Number(b.copies || 0) - Number(b.on_loan || 0));
       const row = document.createElement('tr');
       row.classList.add('book-row');
       const availabilityClass = available > 0 ? 'status-pill status-pill--ok' : 'status-pill status-pill--out';
-      const availabilityLabel = available > 0 ? `🟢 ${available} dispo` : '🔴 0 dispo';
+      const availabilityLabel = available > 0 ? `${available} dispo` : '0 dispo';
       row.innerHTML = `
         <td>${escapeHtml(b.title)}</td>
         <td>${escapeHtml(b.author || '-')}</td>
@@ -1272,7 +1465,12 @@ async function refreshBooks() {
     btn.addEventListener('click', async () => {
       const book = books.find((b) => b.id === Number(btn.dataset.id));
       if (!book) return;
-      if (!window.confirm(`Supprimer definitivement le livre "${book.title}" ? Cette action est irreversible.`)) return;
+      const ok = await confirmDialog({
+        title: 'Supprimer ce livre ?',
+        message: `"${book.title}" sera definitivement supprime du catalogue. Cette action ne peut pas etre annulee.`,
+        confirmLabel: 'Oui, supprimer'
+      });
+      if (!ok) return;
       try {
         setStatus('Suppression en cours...', false);
         await window.api.booksDelete(book.id);
@@ -1315,6 +1513,24 @@ async function refreshStudents() {
     }
     return true;
   });
+
+  const studentsEmptyState = document.getElementById('studentsEmptyState');
+  if (studentsEmptyState) {
+    if (students.length === 0) {
+      table.parentElement.classList.add('hidden');
+      studentsEmptyState.classList.remove('hidden');
+      studentsEmptyState.querySelector('h3').textContent = 'Aucun eleve pour l\'instant';
+      studentsEmptyState.querySelector('p').textContent = 'Ajoutez le premier eleve de cette bibliotheque.';
+    } else if (filtered.length === 0) {
+      table.parentElement.classList.add('hidden');
+      studentsEmptyState.classList.remove('hidden');
+      studentsEmptyState.querySelector('h3').textContent = 'Aucun resultat';
+      studentsEmptyState.querySelector('p').textContent = 'Aucun eleve ne correspond a ces filtres.';
+    } else {
+      table.parentElement.classList.remove('hidden');
+      studentsEmptyState.classList.add('hidden');
+    }
+  }
 
   table.innerHTML = '';
   filtered.forEach((s) => {
@@ -1448,16 +1664,65 @@ loanModeButtons.forEach((btn) => {
   btn.addEventListener('click', () => updateLoanMode(btn.dataset.mode));
 });
 
+const overdueFilterBtnEl = document.getElementById('overdueFilterBtn');
+if (overdueFilterBtnEl) {
+  overdueFilterBtnEl.addEventListener('click', () => {
+    showOverdueOnly = !showOverdueOnly;
+    refreshLoans();
+  });
+}
+
+let cachedLoans = [];
+let showOverdueOnly = false;
+
+function isLoanOverdue(l) {
+  return !!(l.due_date && !l.return_date && new Date(l.due_date) < new Date());
+}
+
 async function refreshLoans() {
   const loans = await window.api.loansList();
+  cachedLoans = loans;
+  updateHomeDashboard();
+
+  const overdueCount = loans.filter(isLoanOverdue).length;
+  const overdueFilterBtn = document.getElementById('overdueFilterBtn');
+  const overdueFilterLabel = document.getElementById('overdueFilterLabel');
+  if (overdueFilterBtn) {
+    overdueFilterBtn.classList.toggle('hidden', overdueCount === 0 && !showOverdueOnly);
+  }
+  if (overdueFilterLabel) {
+    overdueFilterLabel.textContent = showOverdueOnly
+      ? 'Voir tous les emprunts'
+      : `Voir uniquement les retards (${overdueCount})`;
+  }
+
+  const visibleLoans = showOverdueOnly ? loans.filter(isLoanOverdue) : loans;
+
   const table = document.getElementById('loansTable');
+  const loansEmptyState = document.getElementById('loansEmptyState');
+  if (loansEmptyState) {
+    if (visibleLoans.length === 0) {
+      table.parentElement.classList.add('hidden');
+      loansEmptyState.classList.remove('hidden');
+      document.getElementById('loansEmptyTitle').textContent = showOverdueOnly
+        ? 'Aucun pret en retard'
+        : 'Aucun emprunt en cours';
+      document.getElementById('loansEmptyText').textContent = showOverdueOnly
+        ? 'Tous les livres empruntes sont rendus a temps.'
+        : 'Scannez un livre ci-dessus pour enregistrer un premier emprunt.';
+    } else {
+      table.parentElement.classList.remove('hidden');
+      loansEmptyState.classList.add('hidden');
+    }
+  }
+
   table.innerHTML = '';
   const today = new Date();
-  loans.forEach((l) => {
+  visibleLoans.forEach((l) => {
     const row = document.createElement('tr');
-    const isOverdue = l.due_date && !l.return_date && new Date(l.due_date) < today;
+    const isOverdue = isLoanOverdue(l);
     const dueCell = l.due_date
-      ? `${escapeHtml(new Date(l.due_date).toLocaleDateString('fr-FR'))}${isOverdue ? ' <span class="status-pill status-pill--out">⏰ en retard</span>' : ''}`
+      ? `${escapeHtml(new Date(l.due_date).toLocaleDateString('fr-FR'))}${isOverdue ? ' <span class="status-pill status-pill--out">en retard</span>' : ''}`
       : '-';
     row.innerHTML = `
       <td>${escapeHtml(l.book_title)}</td>
@@ -1483,7 +1748,12 @@ async function refreshLoans() {
 
   document.querySelectorAll('.delete-loan').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!window.confirm('Supprimer definitivement cet emprunt ? Cette action est irreversible.')) return;
+      const ok = await confirmDialog({
+        title: 'Supprimer cet emprunt ?',
+        message: 'Cette ligne d\'emprunt sera definitivement supprimee. Cette action ne peut pas etre annulee.',
+        confirmLabel: 'Oui, supprimer'
+      });
+      if (!ok) return;
       await window.api.loansDelete(Number(btn.dataset.id));
       setStatus('Emprunt supprime.');
       refreshAll();
@@ -1493,12 +1763,38 @@ async function refreshLoans() {
 
 const bookForm = document.getElementById('bookForm');
 bookForm.addEventListener('click', ensureBookFormEditable, true);
+function findSimilarBook(title, author) {
+  const t = String(title || '').trim().toLowerCase();
+  const a = String(author || '').trim().toLowerCase();
+  if (!t) return null;
+  return cachedBooks.find((b) => String(b.title || '').trim().toLowerCase() === t
+    && String(b.author || '').trim().toLowerCase() === a) || null;
+}
+
 bookForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const formData = new FormData(bookForm);
   const payload = Object.fromEntries(formData.entries());
+  ['isbn', 'title', 'author', 'numero', 'location'].forEach((field) => {
+    if (typeof payload[field] === 'string') payload[field] = payload[field].trim();
+  });
   payload.year = payload.year ? Number(payload.year) : null;
   payload.copies = payload.copies ? Number(payload.copies) : 1;
+  if (payload.copies < 1 || payload.copies > 200) {
+    setStatus('Le nombre d\'exemplaires doit etre entre 1 et 200.', true);
+    return;
+  }
+  if (bookForm.dataset.mode !== 'edit') {
+    const similar = findSimilarBook(payload.title, payload.author);
+    if (similar) {
+      const proceed = await confirmDialog({
+        title: 'Ce livre existe peut-etre deja',
+        message: `"${similar.title}"${similar.author ? ' - ' + similar.author : ''} est deja dans le catalogue. Ajouter quand meme un nouvel exemplaire distinct ?`,
+        confirmLabel: 'Ajouter quand meme'
+      });
+      if (!proceed) return;
+    }
+  }
   try {
     if (bookForm.dataset.mode === 'edit') {
       payload.id = Number(bookForm.dataset.id);
@@ -1518,11 +1814,60 @@ bookForm.addEventListener('submit', async (event) => {
   }
 });
 
+const cancelBookEditBtn = document.getElementById('cancelBookEditBtn');
+if (cancelBookEditBtn) {
+  cancelBookEditBtn.addEventListener('click', () => {
+    setBookFormMode('add');
+    focusBookIsbnInput();
+  });
+}
+
+const emptyAddBookBtn = document.getElementById('emptyAddBookBtn');
+if (emptyAddBookBtn) {
+  emptyAddBookBtn.addEventListener('click', () => {
+    setActiveTab('books');
+    focusBookIsbnInput();
+  });
+}
+
+const printBooksBtn = document.getElementById('printBooksBtn');
+if (printBooksBtn) {
+  printBooksBtn.addEventListener('click', () => {
+    const booksTab = document.getElementById('tab-books');
+    if (booksTab) booksTab.classList.add('printing');
+    window.print();
+    setTimeout(() => { if (booksTab) booksTab.classList.remove('printing'); }, 500);
+  });
+}
+
+function findSimilarStudent(lastName, firstName, classId) {
+  const l = String(lastName || '').trim().toLowerCase();
+  const f = String(firstName || '').trim().toLowerCase();
+  if (!l && !f) return null;
+  return cachedStudents.find((s) => String(s.last_name || '').trim().toLowerCase() === l
+    && String(s.first_name || '').trim().toLowerCase() === f
+    && String(s.class_id || '') === String(classId || '')) || null;
+}
+
 studentForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const formData = new FormData(studentForm);
   const payload = Object.fromEntries(formData.entries());
+  ['last_name', 'first_name'].forEach((field) => {
+    if (typeof payload[field] === 'string') payload[field] = payload[field].trim();
+  });
   payload.birth_year = payload.birth_year ? Number(payload.birth_year) : null;
+  if (studentForm.dataset.mode !== 'edit') {
+    const similar = findSimilarStudent(payload.last_name, payload.first_name, payload.class_id);
+    if (similar) {
+      const proceed = await confirmDialog({
+        title: 'Cet eleve existe peut-etre deja',
+        message: `${similar.last_name || ''} ${similar.first_name || ''} est deja inscrit dans cette classe. Ajouter quand meme un doublon ?`,
+        confirmLabel: 'Ajouter quand meme'
+      });
+      if (!proceed) return;
+    }
+  }
   try {
     if (studentForm.dataset.mode === 'edit') {
       payload.id = Number(studentForm.dataset.id);
