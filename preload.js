@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   libraryDelete: (libraryKey) => ipcRenderer.invoke('library:delete', libraryKey),
   librarySet: (libraryKey) => ipcRenderer.invoke('library:set', libraryKey),
   libraryInfo: () => ipcRenderer.invoke('library:info'),
+  statsGet: () => ipcRenderer.invoke('stats:get'),
 
   dataExport: () => ipcRenderer.invoke('data:export'),
   dataImport: (payload) => ipcRenderer.invoke('data:import', payload),

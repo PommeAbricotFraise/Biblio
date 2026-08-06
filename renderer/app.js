@@ -1272,9 +1272,48 @@ if (homeTileOverdue) homeTileOverdue.addEventListener('click', () => {
   setActiveTab('loans');
   refreshLoans();
 });
-if (homeTileStats) homeTileStats.addEventListener('click', () => {
-  showToast('ok', 'Bientot disponible', 'Les statistiques arriveront dans une prochaine mise a jour.');
-});
+const statsModal = document.getElementById('statsModal');
+const statsClose = document.getElementById('statsClose');
+const statsSummary = document.getElementById('statsSummary');
+const statsTopBooks = document.getElementById('statsTopBooks');
+const statsTopClasses = document.getElementById('statsTopClasses');
+
+async function openStatsModal() {
+  if (!statsModal || !window.api || !window.api.statsGet) return;
+  statsModal.classList.remove('hidden');
+  statsSummary.innerHTML = '<p class="hint">Calcul en cours...</p>';
+  try {
+    const stats = await window.api.statsGet();
+    statsSummary.innerHTML = `
+      <div class="stat-card">
+        <div class="icon-badge"><svg class="icon"><use href="#i-swap"/></svg></div>
+        <div><div class="n">${escapeHtml(stats.totalLoans)}</div><div class="l">emprunts au total</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="icon-badge"><svg class="icon"><use href="#i-clock"/></svg></div>
+        <div><div class="n">${escapeHtml(stats.activeLoans)}</div><div class="l">emprunts en cours</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="icon-badge"><svg class="icon"><use href="#i-book"/></svg></div>
+        <div><div class="n">${escapeHtml(stats.booksNeverBorrowed)}</div><div class="l">livres jamais empruntes</div></div>
+      </div>
+    `;
+    statsTopBooks.innerHTML = stats.topBooks.map((b) => `
+      <tr><td>${escapeHtml(b.title)}${b.author ? ' <span class="hint" style="display:inline;">(' + escapeHtml(b.author) + ')</span>' : ''}</td><td>${escapeHtml(b.loan_count)}</td></tr>
+    `).join('');
+    document.getElementById('statsTopBooksEmpty').classList.toggle('hidden', stats.topBooks.length > 0);
+    statsTopClasses.innerHTML = stats.topClasses.map((c) => `
+      <tr><td>${escapeHtml(c.name)}${c.teacher_name ? ' <span class="hint" style="display:inline;">(' + escapeHtml(c.teacher_name) + ')</span>' : ''}</td><td>${escapeHtml(c.loan_count)}</td></tr>
+    `).join('');
+    document.getElementById('statsTopClassesEmpty').classList.toggle('hidden', stats.topClasses.length > 0);
+  } catch (err) {
+    statsSummary.innerHTML = '';
+    setStatus('Impossible de calculer les statistiques: ' + err.message, true);
+  }
+}
+
+if (homeTileStats) homeTileStats.addEventListener('click', openStatsModal);
+if (statsClose) statsClose.addEventListener('click', () => statsModal.classList.add('hidden'));
 
 async function refreshYears() {
   const years = await window.api.yearsList();

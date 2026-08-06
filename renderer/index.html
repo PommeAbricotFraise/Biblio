@@ -131,7 +131,7 @@
           <button type="button" class="tile brand-tint" id="homeTileStats">
             <div class="tile-icon"><svg class="icon"><use href="#i-chart"/></svg></div>
             <h3>Statistiques</h3>
-            <p>Bientot disponible.</p>
+            <p>Livres les plus empruntes, classes actives.</p>
           </button>
         </div>
       </section>
@@ -601,6 +601,34 @@
                 <div>Dispo: <strong id="bookPreviewAvailable"></strong></div>
                 <div>En pret: <strong id="bookPreviewOnLoan"></strong></div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="statsModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+          <div class="panel-header">
+            <h2><svg class="icon"><use href="#i-chart"/></svg>Statistiques</h2>
+            <button id="statsClose" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
+          </div>
+          <div class="stat-strip" id="statsSummary"></div>
+          <div class="export-grid">
+            <div class="panel subpanel export-card">
+              <div class="export-card-head"><h3>Livres les plus empruntes</h3></div>
+              <table>
+                <thead><tr><th>Livre</th><th>Emprunts</th></tr></thead>
+                <tbody id="statsTopBooks"></tbody>
+              </table>
+              <p class="hint" id="statsTopBooksEmpty">Aucun emprunt enregistre pour l'instant.</p>
+            </div>
+            <div class="panel subpanel export-card">
+              <div class="export-card-head"><h3>Classes les plus actives</h3></div>
+              <table>
+                <thead><tr><th>Classe</th><th>Emprunts</th></tr></thead>
+                <tbody id="statsTopClasses"></tbody>
+              </table>
+              <p class="hint" id="statsTopClassesEmpty">Aucun emprunt enregistre pour l'instant.</p>
             </div>
           </div>
         </div>
