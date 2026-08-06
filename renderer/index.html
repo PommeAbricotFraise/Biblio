@@ -44,6 +44,7 @@
         <p id="lockError" class="lock-error hidden">Mot de passe incorrect.</p>
       </div>
     </section>
+    <div class="app-topbar">
     <header class="app-header">
       <div class="brand-mark">
         <div class="logo-tile"><svg class="icon"><use href="#i-book"/></svg></div>
@@ -79,6 +80,7 @@
       <button data-tab="students"><svg class="icon"><use href="#i-user"/></svg>Eleves</button>
       <button data-tab="loans"><svg class="icon"><use href="#i-swap"/></svg>Emprunts</button>
     </nav>
+    </div>
 
     <main>
       <section id="tab-home" class="tab active">
@@ -649,7 +651,7 @@
               </div>
               <div class="loan-step">
                 <h3>3. Scanner le livre</h3>
-                <input id="loanIsbn" class="loan-input-big" placeholder="ISBN scanne" autofocus />
+                <input id="loanIsbn" class="loan-input-big" placeholder="ISBN scanne" />
                 <div class="loan-help">Astuce: vous pouvez scanner avant OU apres l'eleve.</div>
                 <div id="loanSelectedBook" class="loan-selected">Aucun livre selectionne</div>
                 <select name="book_id" id="loanBook"></select>

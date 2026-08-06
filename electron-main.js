@@ -620,6 +620,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -627,6 +628,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     title: 'Biblio-rians - Bibliotheque scolaire'
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
   });
 
   if (app.isPackaged) {

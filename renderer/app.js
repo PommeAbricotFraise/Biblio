@@ -282,6 +282,7 @@ function setActiveTab(tabKey) {
   const btn = document.querySelector(`.tabs button[data-tab="${tabKey}"]`);
   if (btn) btn.classList.add('active');
   tabSections[tabKey].classList.add('active');
+  window.scrollTo(0, 0);
   if (tabKey === 'loans') {
     setTimeout(() => loanIsbn && loanIsbn.focus(), 50);
   } else if (tabKey === 'books') {

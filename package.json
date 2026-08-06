@@ -1,6 +1,6 @@
 {
   "name": "biblio-rians",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Logiciel desktop pour gestion de bibliotheque scolaire",
   "main": "electron-main.js",
   "private": true,
