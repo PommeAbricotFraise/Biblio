@@ -107,6 +107,91 @@ function confirmDialog(options) {
   });
 }
 
+/* ---------- Prompt dialog (replaces window.prompt) ---------- */
+const promptDialogOverlay = document.getElementById('promptDialogOverlay');
+const promptDialogTitle = document.getElementById('promptDialogTitle');
+const promptDialogMessage = document.getElementById('promptDialogMessage');
+const promptDialogForm = document.getElementById('promptDialogForm');
+const promptDialogField1 = document.getElementById('promptDialogField1');
+const promptDialogLabel1 = document.getElementById('promptDialogLabel1');
+const promptDialogInput1 = document.getElementById('promptDialogInput1');
+const promptDialogField2 = document.getElementById('promptDialogField2');
+const promptDialogLabel2 = document.getElementById('promptDialogLabel2');
+const promptDialogInput2 = document.getElementById('promptDialogInput2');
+const promptDialogCancel = document.getElementById('promptDialogCancel');
+const promptDialogConfirm = document.getElementById('promptDialogConfirm');
+
+function promptDialog(options) {
+  const opts = options || {};
+  const fields = opts.fields && opts.fields.length ? opts.fields : [{ label: 'Valeur' }];
+  return new Promise((resolve) => {
+    if (!promptDialogOverlay) {
+      const value = window.prompt(opts.title || '', fields[0].value || '');
+      resolve(value === null ? null : [value]);
+      return;
+    }
+    promptDialogTitle.textContent = opts.title || 'Saisir';
+    if (opts.message) {
+      promptDialogMessage.textContent = opts.message;
+      promptDialogMessage.classList.remove('hidden');
+    } else {
+      promptDialogMessage.classList.add('hidden');
+    }
+    promptDialogLabel1.textContent = fields[0].label || 'Valeur';
+    promptDialogInput1.type = fields[0].type || 'text';
+    promptDialogInput1.placeholder = fields[0].placeholder || '';
+    promptDialogInput1.value = fields[0].value || '';
+    if (fields[1]) {
+      promptDialogField2.classList.remove('hidden');
+      promptDialogLabel2.textContent = fields[1].label || 'Valeur';
+      promptDialogInput2.type = fields[1].type || 'text';
+      promptDialogInput2.placeholder = fields[1].placeholder || '';
+      promptDialogInput2.value = '';
+    } else {
+      promptDialogField2.classList.add('hidden');
+    }
+    promptDialogConfirm.innerHTML = `<svg class="icon"><use href="#i-check"/></svg>${escapeHtml(opts.confirmLabel || 'Valider')}`;
+    promptDialogOverlay.classList.remove('hidden');
+    setTimeout(() => promptDialogInput1.focus(), 50);
+
+    function cleanup(result) {
+      promptDialogOverlay.classList.add('hidden');
+      promptDialogForm.removeEventListener('submit', onSubmit);
+      promptDialogCancel.removeEventListener('click', onCancel);
+      promptDialogOverlay.removeEventListener('click', onOverlay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onSubmit(event) {
+      event.preventDefault();
+      const v1 = promptDialogInput1.value;
+      const v2 = fields[1] ? promptDialogInput2.value : undefined;
+      cleanup(fields[1] ? [v1, v2] : [v1]);
+    }
+    function onCancel() { cleanup(null); }
+    function onOverlay(event) { if (event.target === promptDialogOverlay) cleanup(null); }
+    function onKey(event) { if (event.key === 'Escape') cleanup(null); }
+
+    promptDialogForm.addEventListener('submit', onSubmit);
+    promptDialogCancel.addEventListener('click', onCancel);
+    promptDialogOverlay.addEventListener('click', onOverlay);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+/* ---------- Echap ferme la fenetre modale actuellement ouverte ---------- */
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const openModal = document.querySelector('.modal:not(.hidden)');
+  if (!openModal) return;
+  const closeBtn = openModal.querySelector('.panel-header button.ghost');
+  if (closeBtn) {
+    closeBtn.click();
+  } else {
+    openModal.classList.add('hidden');
+  }
+});
+
 /* ---------- Font size & contrast ---------- */
 const FONT_SCALES = [0.9, 1, 1.15, 1.3];
 let fontStep = Number(localStorage.getItem('biblio_font_step') || '1');
@@ -256,7 +341,6 @@ const loanIsbn = document.getElementById('loanIsbn');
 const loanBook = document.getElementById('loanBook');
 const loanDueDate = document.getElementById('loanDueDate');
 const loanSubmitBtn = document.getElementById('loanSubmitBtn');
-const loanModeButtons = document.querySelectorAll('.loan-mode');
 const loanSelectedBook = document.getElementById('loanSelectedBook');
 const loanClassBadge = document.getElementById('loanClassBadge');
 const loanStudentBadge = document.getElementById('loanStudentBadge');
@@ -265,7 +349,6 @@ const bookSortButtons = document.querySelectorAll('.book-sort');
 let cachedBooks = [];
 let cachedStudents = [];
 let cachedClasses = [];
-let currentLoanMode = 'loan';
 let currentBookSort = { key: 'title', dir: 'asc' };
 let suppressIsbnEnterUntil = 0;
 let librariesCache = [
@@ -699,7 +782,12 @@ async function createLibraryFlow() {
     setStatus('Creation de base indisponible. Relancez l\'app.', true);
     return;
   }
-  const name = window.prompt('Nom de la nouvelle base de livres (ex: Prive) :', '');
+  const result = await promptDialog({
+    title: 'Creer une base',
+    fields: [{ label: 'Nom de la nouvelle base de livres', placeholder: 'Ex : Privee' }],
+    confirmLabel: 'Creer'
+  });
+  const name = result ? result[0] : null;
   if (!name || !name.trim()) return;
   try {
     const created = await window.api.libraryCreate(name.trim());
@@ -724,7 +812,12 @@ async function renameLibraryFlow() {
     return;
   }
   const current = librariesCache.find((item) => item.key === key);
-  const nextName = window.prompt('Nouveau nom de la base :', current ? current.name : '');
+  const result = await promptDialog({
+    title: 'Renommer la base',
+    fields: [{ label: 'Nouveau nom de la base', value: current ? current.name : '' }],
+    confirmLabel: 'Renommer'
+  });
+  const nextName = result ? result[0] : null;
   if (!nextName || !nextName.trim()) return;
   try {
     const renamed = await window.api.libraryRename(key, nextName.trim());
@@ -748,7 +841,13 @@ async function deleteLibraryFlow() {
     return;
   }
   const current = librariesCache.find((item) => item.key === key);
-  const typed = window.prompt(`Pour supprimer la base "${current ? current.name : key}", tapez SUPPRIMER :`, '');
+  const result = await promptDialog({
+    title: 'Supprimer cette base ?',
+    message: `Cette action supprime definitivement "${current ? current.name : key}" et tout son contenu (livres, eleves, emprunts). Tapez SUPPRIMER pour confirmer.`,
+    fields: [{ label: 'Tapez SUPPRIMER pour confirmer', placeholder: 'SUPPRIMER' }],
+    confirmLabel: 'Supprimer definitivement'
+  });
+  const typed = result ? result[0] : null;
   if ((typed || '').trim().toUpperCase() !== 'SUPPRIMER') return;
   try {
     const result = await window.api.libraryDelete(key);
@@ -804,13 +903,21 @@ const authRemoveBtn = document.getElementById('authRemoveBtn');
 if (authSetBtn) {
   authSetBtn.addEventListener('click', async () => {
     if (!window.api || !window.api.authSet) return;
-    const pwd = window.prompt('Nouveau mot de passe pour proteger Biblio-rians :', '');
-    if (pwd === null) return;
-    if (!pwd.trim()) {
+    const result = await promptDialog({
+      title: 'Definir un mot de passe',
+      message: 'Ce mot de passe sera demande a chaque lancement de l\'application.',
+      fields: [
+        { label: 'Nouveau mot de passe', type: 'password' },
+        { label: 'Confirmer le mot de passe', type: 'password' }
+      ],
+      confirmLabel: 'Definir'
+    });
+    if (!result) return;
+    const [pwd, confirmPwd] = result;
+    if (!pwd || !pwd.trim()) {
       setStatus('Mot de passe vide, aucune modification.', true);
       return;
     }
-    const confirmPwd = window.prompt('Confirmez le mot de passe :', '');
     if (confirmPwd !== pwd) {
       setStatus('Les deux mots de passe ne correspondent pas.', true);
       return;
@@ -823,7 +930,12 @@ if (authSetBtn) {
 if (authRemoveBtn) {
   authRemoveBtn.addEventListener('click', async () => {
     if (!window.api || !window.api.authSet) return;
-    if (!window.confirm('Retirer le mot de passe de protection de cette application ?')) return;
+    const ok = await confirmDialog({
+      title: 'Retirer le mot de passe ?',
+      message: 'L\'application ne demandera plus de mot de passe au lancement.',
+      confirmLabel: 'Retirer'
+    });
+    if (!ok) return;
     await window.api.authSet('');
     setStatus('Mot de passe retire.');
   });
@@ -983,11 +1095,7 @@ function normalizeIsbnInput(value) {
   return String(value || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
-function updateLoanMode(mode) {
-  currentLoanMode = mode;
-  loanModeButtons.forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
+function resetLoanSubmitState() {
   loanStudent.required = false;
   loanSubmitBtn.textContent = "Valider l'emprunt";
 }
@@ -1108,7 +1216,7 @@ async function attemptAutoReturn(book, cleanIsbn) {
     setStatus('Retour enregistre.', false);
     playSuccessSound();
     resetLoanInputs(true);
-    updateLoanMode(currentLoanMode);
+    resetLoanSubmitState();
     refreshAll();
   } catch (err) {
     setStatus(err.message, true);
@@ -1699,10 +1807,6 @@ loanIsbn.addEventListener('input', () => {
     selectBookByIsbn(clean);
   }
 });
-loanModeButtons.forEach((btn) => {
-  btn.addEventListener('click', () => updateLoanMode(btn.dataset.mode));
-});
-
 const overdueFilterBtnEl = document.getElementById('overdueFilterBtn');
 if (overdueFilterBtnEl) {
   overdueFilterBtnEl.addEventListener('click', () => {
@@ -1828,8 +1932,8 @@ bookForm.addEventListener('submit', async (event) => {
     if (similar) {
       const proceed = await confirmDialog({
         title: 'Ce livre existe peut-etre deja',
-        message: `"${similar.title}"${similar.author ? ' - ' + similar.author : ''} est deja dans le catalogue. Ajouter quand meme un nouvel exemplaire distinct ?`,
-        confirmLabel: 'Ajouter quand meme'
+        message: `"${similar.title}"${similar.author ? ' - ' + similar.author : ''} est deja dans le catalogue avec ${similar.copies || 1} exemplaire(s). Pour ajouter des exemplaires, fermez cette fenetre et modifiez plutot la fiche existante. Continuer creera une fiche separee (disponibilite et historique comptes a part).`,
+        confirmLabel: 'Creer une fiche separee'
       });
       if (!proceed) return;
     }
@@ -2004,7 +2108,7 @@ loanForm.addEventListener('submit', async (event) => {
       playSuccessSound();
     }
     resetLoanInputs(true);
-    updateLoanMode(currentLoanMode);
+    resetLoanSubmitState();
     await refreshAll();
     if (loanIsbn) {
       loanIsbn.focus();
@@ -2020,7 +2124,7 @@ refreshAll()
   .then(() => updateLibraryStatus())
   .catch((err) => setStatus(err.message, true));
 showAddForm('school_year');
-updateLoanMode('loan');
+resetLoanSubmitState();
 if (loanDueDate) {
   loanDueDate.value = defaultDueDateValue();
 }

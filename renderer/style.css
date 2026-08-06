@@ -351,7 +351,6 @@ table button.delete-book:hover, table button.delete-loan:hover{ background:var(-
 .loan-due-label{ display:block; margin:6px 0 14px; font-size:13px; font-weight:700; color:var(--ink); }
 .loan-due-label input{ display:block; margin-top:6px; padding:11px 12px; border-radius:10px; border:1.5px solid var(--line); font-family:inherit; font-weight:600; font-size:14px; width:100%; }
 .loan-submit{ width:100%; justify-content:center; }
-.loan-mode{ display:none; }
 
 /* ---------- dialog / confirm ---------- */
 .dialog-overlay{ position:fixed; inset:0; z-index:600; background:rgba(10,10,18,.5); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:20px; }

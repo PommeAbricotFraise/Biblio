@@ -4,6 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const initSqlJs = require('sql.js');
 const XLSX = require('xlsx');
+const { runMigrations } = require('./migrations');
+const { getStatistics: computeStatistics } = require('./stats');
 
 let mainWindow;
 let db;
@@ -174,112 +176,8 @@ async function initDb() {
   openDbForLibrary(currentLibrary);
 }
 
-/*
- * Migrations de schema versionnees. Chaque entree est appliquee une seule fois,
- * dans l'ordre, en s'appuyant sur PRAGMA user_version (entier stocke nativement
- * dans le fichier SQLite). Toujours ajouter de nouvelles migrations a la fin du
- * tableau, jamais modifier ou reordonner les entrees existantes.
- */
-const MIGRATIONS = [
-  // v1 : schema de base
-  (database) => {
-    database.exec(`
-      CREATE TABLE IF NOT EXISTS school_years (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS classes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        school_year_id INTEGER,
-        name TEXT NOT NULL,
-        teacher_name TEXT,
-        level TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(school_year_id) REFERENCES school_years(id) ON DELETE SET NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS books (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        isbn TEXT,
-        title TEXT NOT NULL,
-        author TEXT,
-        year INTEGER,
-        copies INTEGER DEFAULT 1,
-        numero TEXT,
-        location TEXT,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS students (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        class_id INTEGER,
-        last_name TEXT,
-        first_name TEXT,
-        birth_year INTEGER,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS student_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id INTEGER NOT NULL,
-        class_id INTEGER,
-        school_year_id INTEGER,
-        start_date TEXT NOT NULL,
-        end_date TEXT,
-        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
-        FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE SET NULL,
-        FOREIGN KEY(school_year_id) REFERENCES school_years(id) ON DELETE SET NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS loans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        book_id INTEGER NOT NULL,
-        student_id INTEGER NOT NULL,
-        loan_date TEXT NOT NULL,
-        due_date TEXT,
-        return_date TEXT,
-        FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE,
-        FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
-      );
-    `);
-  },
-  // v2 : colonnes de compatibilite ajoutees apres coup sur d'anciennes bases
-  (database) => {
-    const tryAlter = (sql) => { try { database.exec(sql); } catch (e) { /* colonne deja presente */ } };
-    tryAlter('ALTER TABLE students ADD COLUMN school_year TEXT');
-    tryAlter('ALTER TABLE students ADD COLUMN class TEXT');
-    tryAlter('ALTER TABLE students ADD COLUMN class_id INTEGER');
-    tryAlter('ALTER TABLE students ADD COLUMN last_name TEXT');
-    tryAlter('ALTER TABLE students ADD COLUMN first_name TEXT');
-    tryAlter('ALTER TABLE students ADD COLUMN birth_year INTEGER');
-    tryAlter('ALTER TABLE books ADD COLUMN numero TEXT');
-  }
-];
-
-function getSchemaVersion() {
-  const result = db.exec('PRAGMA user_version');
-  if (result.length && result[0].values.length) {
-    return Number(result[0].values[0][0]) || 0;
-  }
-  return 0;
-}
-
-function setSchemaVersion(v) {
-  db.run(`PRAGMA user_version = ${Number(v)}`);
-}
-
-function runMigrations() {
-  const current = getSchemaVersion();
-  for (let v = current; v < MIGRATIONS.length; v += 1) {
-    MIGRATIONS[v](db);
-    setSchemaVersion(v + 1);
-  }
-}
-
 function ensureSchema() {
-  runMigrations();
+  runMigrations(db);
   migrateStudentsToClasses();
   hasStudentNameColumn = columnExists('students', 'name');
 }
@@ -553,48 +451,6 @@ function get(sql, params = []) {
   return rows[0];
 }
 
-function getStatistics() {
-  const now = new Date().toISOString();
-  const topBooks = all(`
-    SELECT b.id, b.title, b.author, COUNT(l.id) AS loan_count
-    FROM loans l
-    JOIN books b ON b.id = l.book_id
-    GROUP BY b.id
-    ORDER BY loan_count DESC, b.title COLLATE NOCASE
-    LIMIT 5
-  `);
-  const topClasses = all(`
-    SELECT c.id, c.name, c.teacher_name, y.name AS school_year, COUNT(l.id) AS loan_count
-    FROM loans l
-    JOIN students s ON s.id = l.student_id
-    JOIN classes c ON c.id = s.class_id
-    LEFT JOIN school_years y ON y.id = c.school_year_id
-    GROUP BY c.id
-    ORDER BY loan_count DESC, c.name COLLATE NOCASE
-    LIMIT 5
-  `);
-  const totals = get('SELECT COUNT(*) AS c FROM loans');
-  const active = get('SELECT COUNT(*) AS c FROM loans WHERE return_date IS NULL');
-  const overdue = get(
-    'SELECT COUNT(*) AS c FROM loans WHERE return_date IS NULL AND due_date IS NOT NULL AND due_date < ?',
-    [now]
-  );
-  const neverBorrowed = get(`
-    SELECT COUNT(*) AS c FROM books b
-    WHERE NOT EXISTS (SELECT 1 FROM loans l WHERE l.book_id = b.id)
-  `);
-
-  return {
-    topBooks,
-    topClasses,
-    totalLoans: totals ? totals.c : 0,
-    activeLoans: active ? active.c : 0,
-    overdueLoans: overdue ? overdue.c : 0,
-    booksNeverBorrowed: neverBorrowed ? neverBorrowed.c : 0,
-    booksTotal: countRows('books'),
-    studentsTotal: countRows('students')
-  };
-}
 
 function run(sql, params = []) {
   const stmt = db.prepare(sql);
@@ -767,10 +623,22 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: !app.isPackaged,
       preload: path.join(__dirname, 'preload.js')
     },
     title: 'Biblio-rians - Bibliotheque scolaire'
   });
+
+  if (app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const key = String(input.key || '').toLowerCase();
+      const isF12 = key === 'f12';
+      const isDevToolsCombo = input.control && input.shift && key === 'i';
+      if (isF12 || isDevToolsCombo) {
+        event.preventDefault();
+      }
+    });
+  }
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   Menu.setApplicationMenu(null);
@@ -1203,7 +1071,7 @@ function setupIpc() {
   ipcMain.handle('library:rename', (_e, libraryKey, nextName) => renameLibrary(libraryKey, nextName));
   ipcMain.handle('library:delete', (_e, libraryKey) => deleteLibrary(libraryKey));
   ipcMain.handle('library:info', () => getDbStats());
-  ipcMain.handle('stats:get', () => getStatistics());
+  ipcMain.handle('stats:get', () => computeStatistics(db));
   ipcMain.handle('library:set', (_e, libraryKey) => {
     if (!getLibraryByKey(libraryKey)) {
       throw new Error('Bibliotheque inconnue.');
