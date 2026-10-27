@@ -156,7 +156,7 @@ function decryptBuffer(buffer) {
   const source = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
   if (!hasEncryptionHeader(source)) return source;
   if (!isEncryptionAvailable()) {
-    throw new Error('Le chiffrement n\'est pas disponible sur ce poste pour dechiffrer ce fichier.');
+    throw new Error('Le chiffrement n\'est pas disponible sur ce poste pour déchiffrer ce fichier.');
   }
   const payload = source.subarray(ENC_MAGIC.length);
   const decoded = safeStorage.decryptString(payload);
@@ -312,7 +312,7 @@ function openLibraryForRestore(libraryKey) {
 
 function openDbForLibrary(libraryKey) {
   if (!getLibraryByKey(libraryKey)) {
-    throw new Error(`Bibliotheque inconnue: ${libraryKey}`);
+    throw new Error(`Bibliothèque inconnue: ${libraryKey}`);
   }
   // On ne bascule qu'une fois la nouvelle base lue et verifiee : en cas
   // d'echec, la bibliotheque en cours reste ouverte et intacte.
@@ -349,7 +349,7 @@ function ensureLibraryEntry(key, name) {
 function createLibrary(name) {
   const cleanName = String(name || '').trim();
   if (!cleanName) {
-    throw new Error('Nom de bibliotheque requis.');
+    throw new Error('Nom de bibliothèque requis.');
   }
   const existingByName = libraryCatalog.find((item) => item.name.toLowerCase() === cleanName.toLowerCase());
   if (existingByName) {
@@ -372,18 +372,18 @@ function createLibrary(name) {
 function renameLibrary(libraryKey, nextName) {
   const entry = getLibraryByKey(libraryKey);
   if (!entry) {
-    throw new Error('Bibliotheque inconnue.');
+    throw new Error('Bibliothèque inconnue.');
   }
   if (isDefaultLibraryKey(libraryKey)) {
-    throw new Error('Primaire et Maternelle ne peuvent pas etre renommees.');
+    throw new Error('Primaire et Maternelle ne peuvent pas être renommées.');
   }
   const cleanName = String(nextName || '').trim();
   if (!cleanName) {
-    throw new Error('Nom de bibliotheque requis.');
+    throw new Error('Nom de bibliothèque requis.');
   }
   const duplicate = libraryCatalog.find((item) => item.key !== libraryKey && item.name.toLowerCase() === cleanName.toLowerCase());
   if (duplicate) {
-    throw new Error('Une bibliotheque avec ce nom existe deja.');
+    throw new Error('Une bibliothèque avec ce nom existe déjà.');
   }
   entry.name = cleanName;
   saveConfig();
@@ -393,10 +393,10 @@ function renameLibrary(libraryKey, nextName) {
 function deleteLibrary(libraryKey) {
   const entry = getLibraryByKey(libraryKey);
   if (!entry) {
-    throw new Error('Bibliotheque inconnue.');
+    throw new Error('Bibliothèque inconnue.');
   }
   if (isDefaultLibraryKey(libraryKey)) {
-    throw new Error('Primaire et Maternelle ne peuvent pas etre supprimees.');
+    throw new Error('Primaire et Maternelle ne peuvent pas être supprimées.');
   }
 
   const dbPath = getDbPath(libraryKey);
@@ -454,7 +454,7 @@ function readBackupJson(filePath) {
     throw new Error(UNREADABLE_ELSEWHERE_MESSAGE);
   }
   try {
-    return { obj: JSON.parse(content.replace(/^﻿/, '')), trusted };
+    return { obj: JSON.parse(content.replace(/^\uFEFF/, '')), trusted };
   } catch (err) {
     throw new Error('Ce fichier n\'est pas un fichier de données valide (il est peut-être abîmé).');
   }
@@ -943,6 +943,37 @@ async function saveBackupToFile() {
   return { canceled: false, path: result.filePath, message };
 }
 
+async function saveExcelTemplate() {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Enregistrer le modèle Excel',
+    defaultPath: path.join(app.getPath('documents'), 'Modèle Biblio-rians.xlsx'),
+    buttonLabel: 'Enregistrer le modèle',
+    filters: [{ name: 'Classeur Excel', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  const workbook = XLSX.utils.book_new();
+  const guide = [
+    ['Comment remplir ce fichier'],
+    [''],
+    ['1. Remplissez la feuille « Élèves » : une ligne par élève.'],
+    ['2. Remplissez la feuille « Livres » : une ligne par livre (titre obligatoire).'],
+    ['3. Ne changez pas la première ligne de chaque feuille (les titres des colonnes).'],
+    ['4. Enregistrez, puis dans Biblio-rians : Réglages > Importer un fichier.'],
+    [''],
+    ['Les classes et années scolaires manquantes sont créées automatiquement.'],
+    ['Rien n\'est supprimé : les élèves et livres déjà présents ne sont pas ajoutés en double.']
+  ];
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(guide), 'Mode d\'emploi');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Nom', 'Prénom', 'Niveau', 'Enseignant', 'Classe', 'Année scolaire', 'Année de naissance']
+  ]), 'Élèves');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Titre', 'Auteur', 'ISBN', 'Année', 'Exemplaires', 'Numéro', 'Emplacement']
+  ]), 'Livres');
+  XLSX.writeFile(workbook, result.filePath);
+  return { canceled: false, message: `Modèle enregistré : ${result.filePath}` };
+}
+
 function getBackupStatus() {
   const lastAt = loadConfig().lastExternalBackupAt || null;
   const days = lastAt ? Math.floor((Date.now() - new Date(lastAt).getTime()) / (24 * 3600 * 1000)) : null;
@@ -1174,7 +1205,7 @@ function createWindow() {
       devTools: !app.isPackaged,
       preload: path.join(__dirname, 'preload.js')
     },
-    title: 'Biblio-rians - Bibliotheque scolaire'
+    title: 'Biblio-rians - Bibliothèque scolaire'
   });
 
   // La fenetre n'affiche que l'application : pas de navigation vers un autre
@@ -1299,27 +1330,34 @@ function listStudents() {
   `);
 }
 
-function listLoansAll() {
-  return all(`
-    SELECT l.*, b.title AS book_title,
-      TRIM(COALESCE(s.last_name, '') || ' ' || COALESCE(s.first_name, '')) AS student_name
+const LOAN_SELECT = `
+    SELECT l.*, b.title AS book_title, b.isbn AS book_isbn,
+      TRIM(COALESCE(s.last_name, '') || ' ' || COALESCE(s.first_name, '')) AS student_name,
+      c.name AS class_name, c.teacher_name, y.name AS school_year
     FROM loans l
     JOIN books b ON b.id = l.book_id
     JOIN students s ON s.id = l.student_id
-    ORDER BY l.loan_date DESC
-  `);
+    LEFT JOIN classes c ON c.id = s.class_id
+    LEFT JOIN school_years y ON y.id = c.school_year_id`;
+
+function listLoansAll() {
+  return all(`${LOAN_SELECT}
+    ORDER BY l.loan_date DESC`);
 }
 
 function listLoansActive() {
-  return all(`
-    SELECT l.*, b.title AS book_title,
-      TRIM(COALESCE(s.last_name, '') || ' ' || COALESCE(s.first_name, '')) AS student_name
-    FROM loans l
-    JOIN books b ON b.id = l.book_id
-    JOIN students s ON s.id = l.student_id
+  return all(`${LOAN_SELECT}
     WHERE l.return_date IS NULL
-    ORDER BY l.loan_date DESC
-  `);
+    ORDER BY l.loan_date DESC`);
+}
+
+const LOAN_HISTORY_LIMIT = 500;
+
+function listLoansReturned() {
+  return all(`${LOAN_SELECT}
+    WHERE l.return_date IS NOT NULL
+    ORDER BY l.return_date DESC
+    LIMIT ${LOAN_HISTORY_LIMIT}`);
 }
 
 function normalizeStudentPayload(payload) {
@@ -1398,7 +1436,7 @@ async function lookupIsbn(isbn) {
 
   // BnF SRU fallback
   try {
-    const url = `https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=isbn=${clean}&maximumRecords=1&recordSchema=dc`;
+    const url = `https://catalogue.bnf.fr/api/SRU?version=1.2&opération=searchRetrieve&query=isbn=${clean}&maximumRecords=1&recordSchema=dc`;
     const res = await fetchWithTimeout(url);
     if (res.ok) {
       const xml = await res.text();
@@ -1467,7 +1505,7 @@ const RENDERER_URL = normalizeFileUrl(pathToFileURL(path.join(__dirname, 'render
 function assertTrustedSender(event) {
   const url = event && event.senderFrame ? event.senderFrame.url : '';
   if (!url || normalizeFileUrl(url) !== RENDERER_URL) {
-    throw new Error('Demande refusee.');
+    throw new Error('Demande refusée.');
   }
 }
 
@@ -1517,9 +1555,15 @@ function optionalDate(value) {
   return text.slice(0, 30);
 }
 
+function httpsUrlOrNull(value) {
+  const url = cleanText(value, 500);
+  return url && /^https:\/\/[^\s"'<>]+$/.test(url) ? url : null;
+}
+
 function sanitizeBook(payload, withId) {
   const p = asObject(payload);
   return {
+    cover_url: httpsUrlOrNull(p.cover_url),
     ...(withId ? { id: toId(p.id) } : {}),
     isbn: cleanText(p.isbn, 30),
     title: requiredText(p.title, 'Le titre', 300),
@@ -1615,6 +1659,7 @@ const ARGUMENT_RULES = {
   'books:update': [(p) => sanitizeBook(p, true)],
   'books:delete': [toId],
   'books:lookup': [(v) => cleanText(v, 30) || ''],
+  'books:setCover': [toId, (v) => httpsUrlOrNull(v)],
   'students:add': [(p) => sanitizeStudent(p, false)],
   'students:update': [(p) => sanitizeStudent(p, true)],
   'students:delete': [toId],
@@ -1690,7 +1735,7 @@ function setupIpc() {
   handle('stats:get', () => computeStatistics(db));
   handle('library:set', async (_e, libraryKey) => {
     if (!getLibraryByKey(libraryKey)) {
-      throw new Error('Bibliotheque inconnue.');
+      throw new Error('Bibliothèque inconnue.');
     }
     try {
       openDbForLibrary(libraryKey);
@@ -1709,25 +1754,31 @@ function setupIpc() {
   handle('books:add', (_e, payload) => {
     const now = new Date().toISOString();
     run(`
-      INSERT INTO books (isbn, title, author, year, copies, numero, location, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null, now]);
+      INSERT INTO books (isbn, title, author, year, copies, numero, location, cover_url, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null, payload.cover_url || null, now]);
     persist();
     return listBooks();
   });
   handle('books:update', (_e, payload) => {
     run(`
       UPDATE books
-      SET isbn = ?, title = ?, author = ?, year = ?, copies = ?, numero = ?, location = ?
+      SET isbn = ?, title = ?, author = ?, year = ?, copies = ?, numero = ?, location = ?,
+        cover_url = CASE
+          WHEN ? IS NOT NULL THEN ?
+          WHEN COALESCE(isbn, '') <> COALESCE(?, '') THEN NULL
+          ELSE cover_url
+        END
       WHERE id = ?
-    `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null, payload.id]);
+    `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null,
+      payload.cover_url || null, payload.cover_url || null, payload.isbn || null, payload.id]);
     persist();
     return listBooks();
   });
   handle('books:delete', (_e, id) => {
     const activeLoan = get('SELECT COUNT(*) AS c FROM loans WHERE book_id = ? AND return_date IS NULL', [id]);
     if (activeLoan && activeLoan.c > 0) {
-      throw new Error('Impossible de supprimer ce livre : un ou plusieurs exemplaires sont actuellement empruntes. Enregistrez d\'abord leur retour.');
+      throw new Error('Impossible de supprimer ce livre : un ou plusieurs exemplaires sont actuellement empruntés. Enregistrez d\'abord leur retour.');
     }
     run('DELETE FROM books WHERE id = ?', [id]);
     persist();
@@ -1735,6 +1786,11 @@ function setupIpc() {
   });
   handle('books:lookup', async (_e, isbn) => {
     return lookupIsbn(isbn);
+  });
+  handle('books:setCover', (_e, id, coverUrl) => {
+    run('UPDATE books SET cover_url = ? WHERE id = ?', [coverUrl, id]);
+    persist();
+    return true;
   });
 
   handle('students:list', () => listStudents());
@@ -1789,6 +1845,10 @@ function setupIpc() {
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
     handle('years:delete', (_e, id) => {
+      const usedBy = get('SELECT COUNT(*) AS c FROM classes WHERE school_year_id = ?', [id]);
+      if (usedBy && usedBy.c > 0) {
+        throw new Error(`Cette année scolaire contient encore ${usedBy.c} classe(s). Supprimez d'abord ces classes.`);
+      }
       run('DELETE FROM school_years WHERE id = ?', [id]);
       persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
@@ -1822,6 +1882,10 @@ function setupIpc() {
       return all('SELECT * FROM classes');
     });
     handle('classes:delete', (_e, id) => {
+      const usedBy = get('SELECT COUNT(*) AS c FROM students WHERE class_id = ?', [id]);
+      if (usedBy && usedBy.c > 0) {
+        throw new Error(`Cette classe contient encore ${usedBy.c} élève(s). Changez-les de classe ou supprimez-les d'abord.`);
+      }
       run('DELETE FROM classes WHERE id = ?', [id]);
       persist();
       return all('SELECT * FROM classes');
@@ -1842,7 +1906,7 @@ function setupIpc() {
       const nextName = payload.next_year_name;
 
       if (!currentYearId || !nextName) {
-        throw new Error('Donnees manquantes pour cloturer l\'annee.');
+        throw new Error('Données manquantes pour clôturer l\'année.');
       }
 
       writeSafetyBackup('avant-cloture-annee');
@@ -1881,7 +1945,7 @@ function setupIpc() {
   handle('students:delete', (_e, id) => {
     const activeLoan = get('SELECT COUNT(*) AS c FROM loans WHERE student_id = ? AND return_date IS NULL', [id]);
     if (activeLoan && activeLoan.c > 0) {
-      throw new Error('Impossible de supprimer cet eleve : il a un ou plusieurs emprunts en cours. Enregistrez d\'abord leur retour.');
+      throw new Error('Impossible de supprimer cet élève : il a un ou plusieurs emprunts en cours. Enregistrez d\'abord leur retour.');
     }
     run('DELETE FROM students WHERE id = ?', [id]);
     persist();
@@ -1889,6 +1953,7 @@ function setupIpc() {
   });
 
   handle('loans:list', () => listLoansActive());
+  handle('loans:history', () => listLoansReturned());
   handle('loans:add', (_e, payload) => {
     const available = getAvailableCopies(payload.book_id);
     if (available <= 0) {
@@ -1903,7 +1968,7 @@ function setupIpc() {
     return listLoansActive();
   });
   handle('loans:return', (_e, id) => {
-    run('UPDATE loans SET return_date = ? WHERE id = ?', [new Date().toISOString(), id]);
+    run('UPDATE loans SET return_date = ? WHERE id = ? AND return_date IS NULL', [new Date().toISOString(), id]);
     persist();
     return listLoansActive();
   });
@@ -1936,6 +2001,7 @@ function setupIpc() {
     return listLoansActive();
   });
 
+  handle('data:template', () => saveExcelTemplate());
   handle('import:pick', async (_e, options) => {
     const fromAutoBackups = !!(options && options.fromAutoBackups);
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -1999,8 +2065,8 @@ if (!gotSingleInstanceLock) {
     } catch (err) {
       logStartupError(err);
       dialog.showErrorBox(
-        'Biblio-rians - Erreur au demarrage',
-        `Une erreur a empeche le demarrage de l'application :\n\n${err && err.message ? err.message : err}\n\nDetails enregistres dans error.log (dossier de donnees de l'application).`
+        'Biblio-rians - Erreur au démarrage',
+        `Une erreur a empêché le démarrage de l'application :\n\n${err && err.message ? err.message : err}\n\nDetails enregistrés dans error.log (dossier de données de l'application).`
       );
       app.quit();
     }

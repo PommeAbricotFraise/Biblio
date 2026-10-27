@@ -27,8 +27,13 @@ function countRows(db, table) {
   return row ? Number(row.c || 0) : 0;
 }
 
-function getStatistics(db) {
-  const now = new Date().toISOString();
+/* Date du jour locale (AAAA-MM-JJ) : un livre a rendre aujourd'hui n'est pas encore en retard. */
+function localToday(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getStatistics(db, today = localToday()) {
   const topBooks = queryAll(db, `
     SELECT b.id, b.title, b.author, COUNT(l.id) AS loan_count
     FROM loans l
@@ -51,8 +56,8 @@ function getStatistics(db) {
   const active = queryGet(db, 'SELECT COUNT(*) AS c FROM loans WHERE return_date IS NULL');
   const overdue = queryGet(
     db,
-    'SELECT COUNT(*) AS c FROM loans WHERE return_date IS NULL AND due_date IS NOT NULL AND due_date < ?',
-    [now]
+    'SELECT COUNT(*) AS c FROM loans WHERE return_date IS NULL AND due_date IS NOT NULL AND substr(due_date, 1, 10) < ?',
+    [today]
   );
   const neverBorrowed = queryGet(db, `
     SELECT COUNT(*) AS c FROM books b
@@ -71,4 +76,4 @@ function getStatistics(db) {
   };
 }
 
-module.exports = { getStatistics, queryAll, queryGet, countRows };
+module.exports = { getStatistics, localToday, queryAll, queryGet, countRows };

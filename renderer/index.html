@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://covers.openlibrary.org https://archive.org https://*.archive.org https://books.google.com https://*.googleusercontent.com; media-src 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
-    <title>Biblio-rians - Bibliotheque scolaire</title>
+    <title>Biblio-rians - Bibliothèque scolaire</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -39,10 +39,10 @@
     <section id="lockScreen" class="lock-screen hidden">
       <div class="lock-box">
         <h1><svg class="icon"><use href="#i-book"/></svg>Biblio-rians</h1>
-        <p>Cette bibliotheque est protegee par un mot de passe.</p>
+        <p>Cette bibliothèque est protégée par un mot de passe.</p>
         <form id="lockForm">
           <input id="lockPassword" type="password" placeholder="Mot de passe" autocomplete="current-password" autofocus />
-          <button type="submit">Deverrouiller</button>
+          <button type="submit">Déverrouiller</button>
         </form>
         <p id="lockError" class="lock-error hidden">Mot de passe incorrect.</p>
       </div>
@@ -53,35 +53,32 @@
         <div class="logo-tile"><svg class="icon"><use href="#i-book"/></svg></div>
         <div>
           <h1>Biblio-rians <span id="libraryBadge" class="library-badge">Primaire</span></h1>
-          <p>Gestion de bibliotheque scolaire</p>
+          <p>Gestion de bibliothèque scolaire</p>
         </div>
       </div>
       <div class="actions">
         <div class="font-controls" title="Taille du texte">
-          <button type="button" id="fontDecBtn">A-</button>
-          <button type="button" id="fontResetBtn">A</button>
-          <button type="button" id="fontIncBtn">A+</button>
+          <button type="button" id="fontDecBtn" aria-label="Texte plus petit">A-</button>
+          <button type="button" id="fontResetBtn" aria-label="Taille normale">A</button>
+          <button type="button" id="fontIncBtn" aria-label="Texte plus grand">A+</button>
         </div>
         <button type="button" id="contrastToggleBtn"><svg class="icon"><use href="#i-contrast"/></svg>Contraste</button>
-        <label class="library-switch">
-          <select id="librarySelect">
+        <label class="library-switch" title="Bibliothèque ouverte">
+          <select id="librarySelect" aria-label="Bibliothèque ouverte">
             <option value="primaire">Primaire</option>
             <option value="maternelle">Maternelle</option>
           </select>
         </label>
         <button id="lockAppBtn" type="button" class="hidden" title="Verrouiller l'application quand vous quittez le poste"><svg class="icon"><use href="#i-lock"/></svg>Verrouiller</button>
-        <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Bases</button>
-        <button id="openAddTab"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button>
+        <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Réglages</button>
         <button id="openBackupSave" type="button" class="save-btn" title="Enregistrer une copie de toutes vos données (sur une clé USB par exemple)"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder</button>
-        <button id="openExport"><svg class="icon"><use href="#i-download"/></svg>Exporter</button>
-        <button id="openImport"><svg class="icon"><use href="#i-upload"/></svg>Importer</button>
       </div>
     </header>
 
     <nav class="tabs">
       <button data-tab="home" class="active"><svg class="icon"><use href="#i-home"/></svg>Accueil</button>
       <button data-tab="books"><svg class="icon"><use href="#i-book"/></svg>Livres</button>
-      <button data-tab="students"><svg class="icon"><use href="#i-user"/></svg>Eleves</button>
+      <button data-tab="students"><svg class="icon"><use href="#i-user"/></svg>Élèves</button>
       <button data-tab="loans"><svg class="icon"><use href="#i-swap"/></svg>Emprunts</button>
     </nav>
     </div>
@@ -109,11 +106,11 @@
           </div>
           <div class="stat-card">
             <div class="icon-badge"><svg class="icon"><use href="#i-user"/></svg></div>
-            <div><div class="n" id="homeStatStudents">0</div><div class="l">eleves inscrits</div></div>
+            <div><div class="n" id="homeStatStudents">0</div><div class="l">élèves inscrits</div></div>
           </div>
           <div class="stat-card hidden" id="homeStatOverdueCard">
             <div class="icon-badge"><svg class="icon"><use href="#i-clock"/></svg></div>
-            <div><div class="n" id="homeStatOverdue">0</div><div class="l">prets en retard</div></div>
+            <div><div class="n" id="homeStatOverdue">0</div><div class="l">prêts en retard</div></div>
           </div>
         </div>
 
@@ -121,7 +118,7 @@
           <button type="button" class="tile primary" id="homeTileLoan">
             <div class="tile-icon"><svg class="icon"><use href="#i-swap"/></svg></div>
             <h3>Emprunter ou rendre un livre</h3>
-            <p>Scanner un livre pour un eleve, ou enregistrer un retour.</p>
+            <p>Scanner un livre pour un élève, ou enregistrer un retour.</p>
           </button>
           <button type="button" class="tile" id="homeTileAddBook">
             <div class="tile-icon"><svg class="icon"><use href="#i-book-plus"/></svg></div>
@@ -130,8 +127,8 @@
           </button>
           <button type="button" class="tile" id="homeTileAddStudent">
             <div class="tile-icon"><svg class="icon"><use href="#i-user-plus"/></svg></div>
-            <h3>Ajouter un eleve</h3>
-            <p>Inscrire un eleve dans une classe.</p>
+            <h3>Ajouter un élève</h3>
+            <p>Inscrire un élève dans une classe.</p>
           </button>
           <button type="button" class="tile brand-tint" id="homeTileCatalogue">
             <div class="tile-icon"><svg class="icon"><use href="#i-book"/></svg></div>
@@ -140,13 +137,13 @@
           </button>
           <button type="button" class="tile brand-tint" id="homeTileOverdue">
             <div class="tile-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
-            <h3>Prets en retard</h3>
-            <p id="homeTileOverdueText">Aucun pret en retard actuellement.</p>
+            <h3>Prêts en retard</h3>
+            <p id="homeTileOverdueText">Aucun prêt en retard actuellement.</p>
           </button>
           <button type="button" class="tile brand-tint" id="homeTileStats">
             <div class="tile-icon"><svg class="icon"><use href="#i-chart"/></svg></div>
             <h3>Statistiques</h3>
-            <p>Livres les plus empruntes, classes actives.</p>
+            <p>Livres les plus empruntés, classes actives.</p>
           </button>
         </div>
       </section>
@@ -154,10 +151,10 @@
       <section id="tab-books" class="tab">
         <div class="panel no-print">
           <h2><svg class="icon"><use href="#i-book-plus"/></svg>Ajouter un livre</h2>
-          <div class="card-sub">Renseignez l'ISBN pour remplir automatiquement le titre, l'auteur et la couverture, ou saisissez tout a la main.</div>
+          <div class="card-sub">Renseignez l'ISBN pour remplir automatiquement le titre, l'auteur et la couverture, ou saisissez tout à la main.</div>
           <form id="bookForm" class="form-grid">
             <div class="field">
-              <label for="bookIsbnInput">Code ISBN <span class="hint" style="display:inline;margin:0;">(optionnel, le numero au dos du livre)</span></label>
+              <label for="bookIsbnInput">Code ISBN <span class="hint" style="display:inline;margin:0;">(optionnel, le numéro au dos du livre)</span></label>
               <div style="display:flex; gap:10px;">
                 <input id="bookIsbnInput" name="isbn" placeholder="Ex : 9782070612758" style="flex:1;" />
                 <button type="button" id="lookupIsbnBtn" class="btn ghost lookup-btn"><svg class="icon"><use href="#i-search"/></svg>Chercher</button>
@@ -167,7 +164,7 @@
               <img id="bookCover" alt="Couverture" src="" />
               <div id="coverPlaceholder">Aucune couverture pour l'instant</div>
               <div id="coverLoader" class="cover-loader hidden">Recherche en cours...</div>
-              <div id="coverEmpty" class="cover-empty hidden">Pas de couverture trouvee</div>
+              <div id="coverEmpty" class="cover-empty hidden">Pas de couverture trouvée</div>
             </div>
             <div class="field">
               <label for="bookTitleInput">Titre du livre</label>
@@ -176,27 +173,27 @@
             <div class="field-row">
               <div class="field">
                 <label for="bookAuthorInput">Auteur</label>
-                <input id="bookAuthorInput" name="author" placeholder="Ex : Antoine de Saint-Exupery" />
+                <input id="bookAuthorInput" name="author" placeholder="Ex : Antoine de Saint-Exupéry" />
               </div>
               <div class="field">
-                <label for="bookYearInput">Annee de publication</label>
+                <label for="bookYearInput">Année de publication</label>
                 <input id="bookYearInput" name="year" placeholder="Ex : 1943" type="number" min="1400" max="2100" />
               </div>
             </div>
             <div class="field-row">
               <div class="field">
                 <label for="bookCopiesInput">Nombre d'exemplaires</label>
-                <input id="bookCopiesInput" name="copies" type="number" value="1" min="1" max="200" />
+                <input id="bookCopiesInput" name="copies" type="number" value="1" min="1" max="999" />
               </div>
               <div class="field">
-                <label for="bookNumeroInput">Numero <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
+                <label for="bookNumeroInput">Numéro <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
                 <input id="bookNumeroInput" name="numero" placeholder="Ex : L-042" />
               </div>
             </div>
             <div class="field">
-              <label for="bookLocationInput">Emplacement dans la bibliotheque <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
-              <input id="bookLocationInput" name="location" placeholder="Ex : Etagere Contes, bac 3" />
-              <span class="hint">Cela aide a retrouver le livre plus vite sur les rayons.</span>
+              <label for="bookLocationInput">Emplacement dans la bibliothèque <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
+              <input id="bookLocationInput" name="location" placeholder="Ex : Étagère Contes, bac 3" />
+              <span class="hint">Cela aide à retrouver le livre plus vite sur les rayons.</span>
             </div>
             <div class="form-actions">
               <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Ajouter ce livre</button>
@@ -215,21 +212,22 @@
               <tr>
                 <th><button type="button" class="book-sort" data-sort="title">Titre <span class="sort-indicator"></span></button></th>
                 <th><button type="button" class="book-sort" data-sort="author">Auteur <span class="sort-indicator"></span></button></th>
-                <th><button type="button" class="book-sort" data-sort="year">Annee <span class="sort-indicator"></span></button></th>
+                <th><button type="button" class="book-sort" data-sort="year">Année <span class="sort-indicator"></span></button></th>
                 <th><button type="button" class="book-sort" data-sort="isbn">ISBN <span class="sort-indicator"></span></button></th>
                 <th><button type="button" class="book-sort" data-sort="copies">Ex. <span class="sort-indicator"></span></button></th>
                 <th><button type="button" class="book-sort" data-sort="available">Dispo <span class="sort-indicator"></span></button></th>
-                <th><button type="button" class="book-sort" data-sort="on_loan">En pret <span class="sort-indicator"></span></button></th>
-                <th>Numero</th>
+                <th><button type="button" class="book-sort" data-sort="on_loan">En prêt <span class="sort-indicator"></span></button></th>
+                <th>Numéro</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="booksTable"></tbody>
           </table>
+          <p class="hint hidden" id="booksLimitNote"></p>
           <div class="empty-state hidden" id="booksEmptyState">
             <div class="big-icon"><svg class="icon"><use href="#i-book"/></svg></div>
             <h3>Aucun livre pour l'instant</h3>
-            <p>Cette bibliotheque n'a pas encore de livre enregistre. Ajoutez le premier pour commencer.</p>
+            <p>Cette bibliothèque n'a pas encore de livre enregistré. Ajoutez le premier pour commencer.</p>
             <button type="button" class="btn" id="emptyAddBookBtn"><svg class="icon"><use href="#i-plus"/></svg>Ajouter mon premier livre</button>
           </div>
         </div>
@@ -244,7 +242,7 @@
           <table>
             <thead>
               <tr>
-                <th>Annee</th>
+                <th>Année</th>
                 <th>Professeur</th>
                 <th>Niveau</th>
                 <th>Classe</th>
@@ -256,23 +254,23 @@
           <div class="empty-state hidden" id="classesEmptyState">
             <div class="big-icon"><svg class="icon"><use href="#i-sliders"/></svg></div>
             <h3>Aucune classe pour l'instant</h3>
-            <p>Creez d'abord une annee scolaire, puis ajoutez une classe.</p>
+            <p>Créez d'abord une année scolaire, puis ajoutez une classe.</p>
             <button type="button" class="btn" id="emptyAddClassBtn"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une classe</button>
           </div>
         </div>
         <div class="panel card-pink">
           <div class="panel-header panel-header-inline">
-            <h2><svg class="icon"><use href="#i-user"/></svg>Eleves</h2>
-            <button type="button" id="addStudentBtn" class="section-add-btn section-add-btn--student"><svg class="icon"><use href="#i-user-plus"/></svg>Ajouter un eleve</button>
+            <h2><svg class="icon"><use href="#i-user"/></svg>Élèves</h2>
+            <button type="button" id="addStudentBtn" class="section-add-btn section-add-btn--student"><svg class="icon"><use href="#i-user-plus"/></svg>Ajouter un élève</button>
           </div>
-          <input id="studentSearch" class="table-search" type="search" placeholder="Rechercher un eleve (nom, prenom)..." />
+          <input id="studentSearch" class="table-search" type="search" placeholder="Rechercher un élève (nom, prénom)..." />
           <table>
             <thead>
               <tr>
-                <th>Annee scolaire</th>
+                <th>Année scolaire</th>
                 <th>Classe</th>
                 <th>Nom</th>
-                <th>Prenom</th>
+                <th>Prénom</th>
                 <th>Naissance</th>
                 <th>Actions</th>
               </tr>
@@ -281,20 +279,20 @@
           </table>
           <div class="empty-state hidden" id="studentsEmptyState">
             <div class="big-icon"><svg class="icon"><use href="#i-user"/></svg></div>
-            <h3>Aucun eleve pour l'instant</h3>
-            <p>Ajoutez le premier eleve de cette bibliotheque.</p>
-            <button type="button" class="btn" id="emptyAddStudentBtn"><svg class="icon"><use href="#i-user-plus"/></svg>Ajouter un eleve</button>
+            <h3>Aucun élève pour l'instant</h3>
+            <p>Ajoutez le premier élève de cette bibliothèque.</p>
+            <button type="button" class="btn" id="emptyAddStudentBtn"><svg class="icon"><use href="#i-user-plus"/></svg>Ajouter un élève</button>
           </div>
         </div>
         <div class="panel card-blue">
           <div class="panel-header panel-header-inline">
-            <h2><svg class="icon"><use href="#i-clock"/></svg>Annees scolaires</h2>
-            <button type="button" id="addSchoolYearBtn" class="section-add-btn section-add-btn--year"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une annee</button>
+            <h2><svg class="icon"><use href="#i-clock"/></svg>Années scolaires</h2>
+            <button type="button" id="addSchoolYearBtn" class="section-add-btn section-add-btn--year"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une année</button>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Annee</th>
+                <th>Année</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -302,18 +300,18 @@
           </table>
           <div class="empty-state hidden" id="yearsEmptyState">
             <div class="big-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
-            <h3>Aucune annee scolaire</h3>
-            <p>Commencez par creer l'annee scolaire en cours.</p>
-            <button type="button" class="btn" id="emptyAddYearBtn"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une annee</button>
+            <h3>Aucune année scolaire</h3>
+            <p>Commencez par créer l'année scolaire en cours.</p>
+            <button type="button" class="btn" id="emptyAddYearBtn"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une année</button>
           </div>
         </div>
         <div class="panel close-year-warning">
           <div class="close-year-content">
             <div>
-              <h2><svg class="icon"><use href="#i-alert"/></svg>Cloturer l'annee</h2>
-              <p class="close-year-text">Action irreversible. Verifiez vos donnees avant de continuer.</p>
+              <h2><svg class="icon"><use href="#i-alert"/></svg>Clôturer l'année</h2>
+              <p class="close-year-text">Action irréversible. Vérifiez vos données avant de continuer.</p>
             </div>
-            <button id="closeYearBtn" class="close-year-btn"><svg class="icon"><use href="#i-alert"/></svg>Cloturer l'annee</button>
+            <button id="closeYearBtn" class="close-year-btn"><svg class="icon"><use href="#i-alert"/></svg>Clôturer l'année</button>
           </div>
         </div>
       </section>
@@ -328,23 +326,23 @@
             <label>
               Que voulez-vous ajouter ?
               <div class="add-choice">
-                <button type="button" class="add-choice-btn active" data-add="school_year">Annee scolaire</button>
+                <button type="button" class="add-choice-btn active" data-add="school_year">Année scolaire</button>
                 <button type="button" class="add-choice-btn" data-add="class">Classe</button>
-                <button type="button" class="add-choice-btn" data-add="student">Eleve</button>
+                <button type="button" class="add-choice-btn" data-add="student">Élève</button>
               </div>
             </label>
           </div>
           <div class="add-forms">
             <form id="schoolYearForm" class="form-grid" data-form="school_year">
               <div class="field">
-                <label for="yearNameInput">Annee scolaire</label>
+                <label for="yearNameInput">Année scolaire</label>
                 <input id="yearNameInput" name="name" placeholder="Ex : 2025-2026" required />
               </div>
-              <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Enregistrer l'annee</button>
+              <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Enregistrer l'année</button>
             </form>
             <form id="classForm" class="form-grid hidden" data-form="class">
               <div class="field">
-                <label for="classYearSelect">Annee scolaire</label>
+                <label for="classYearSelect">Année scolaire</label>
                 <select name="school_year_id" id="classYearSelect" required></select>
               </div>
               <div class="field">
@@ -354,7 +352,7 @@
               <div class="field">
                 <label for="classLevelInput">Niveau scolaire</label>
                 <input id="classLevelInput" name="level" placeholder="Ex : CE1" required />
-                <span class="hint">Le nom de la classe est genere automatiquement.</span>
+                <span class="hint">Le nom de la classe est généré automatiquement.</span>
               </div>
               <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Enregistrer la classe</button>
             </form>
@@ -369,41 +367,111 @@
                   <input id="studentLastNameInput" name="last_name" placeholder="Ex : Martin" required />
                 </div>
                 <div class="field">
-                  <label for="studentFirstNameInput">Prenom</label>
-                  <input id="studentFirstNameInput" name="first_name" placeholder="Ex : Lea" required />
+                  <label for="studentFirstNameInput">Prénom</label>
+                  <input id="studentFirstNameInput" name="first_name" placeholder="Ex : Léa" required />
                 </div>
               </div>
               <div class="field">
-                <label for="studentBirthYearInput">Annee de naissance <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
+                <label for="studentBirthYearInput">Année de naissance <span class="hint" style="display:inline;margin:0;">(optionnel)</span></label>
                 <input id="studentBirthYearInput" name="birth_year" placeholder="Ex : 2017" type="number" min="1990" max="2100" />
               </div>
-              <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Enregistrer l'eleve</button>
+              <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Enregistrer l'élève</button>
             </form>
           </div>
         </div>
       </section>
 
       <section id="manageLibraryModal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content modal-wide settings">
           <div class="panel-header">
-            <h2><svg class="icon"><use href="#i-sliders"/></svg>Gerer les bases</h2>
+            <h2><svg class="icon"><use href="#i-sliders"/></svg>Réglages</h2>
             <button id="manageLibraryClose" class="ghost" type="button"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
           </div>
-          <div class="confirm-actions" style="justify-content: flex-start;">
-            <button id="libraryActionCreate" type="button"><svg class="icon"><use href="#i-plus"/></svg>Creer une base</button>
-            <button id="libraryActionRename" type="button"><svg class="icon"><use href="#i-edit"/></svg>Renommer la base active</button>
-            <button id="libraryActionDelete" type="button" class="close-year-btn"><svg class="icon"><use href="#i-trash"/></svg>Supprimer la base active</button>
+
+          <section class="settings-section">
+            <h3><svg class="icon"><use href="#i-save"/></svg>Sauvegardes</h3>
+            <p class="card-sub">Une sauvegarde automatique est faite chaque jour sur cet ordinateur. Pour vous protéger d'une panne, faites aussi régulièrement une sauvegarde sur une clé USB.</p>
+            <div class="settings-actions">
+              <button id="backupSaveBtn" type="button" class="btn"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder sur une clé USB</button>
+              <button id="backupRestoreBtn" type="button" class="btn ghost"><svg class="icon"><use href="#i-upload"/></svg>Restaurer une sauvegarde</button>
+              <button id="backupAutoRestoreBtn" type="button" class="btn ghost"><svg class="icon"><use href="#i-clock"/></svg>Revenir à un jour précédent</button>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3><svg class="icon"><use href="#i-upload"/></svg>Importer ou exporter des listes</h3>
+            <p class="card-sub">Pour ajouter d'un coup une liste d'élèves ou de livres : téléchargez le modèle Excel, remplissez-le, puis importez-le.</p>
+            <div class="settings-actions">
+              <button id="templateBtn" type="button" class="btn ghost"><svg class="icon"><use href="#i-download"/></svg>Télécharger le modèle Excel</button>
+              <button id="openImport" type="button" class="btn ghost"><svg class="icon"><use href="#i-upload"/></svg>Importer un fichier</button>
+              <button id="openExport" type="button" class="btn ghost"><svg class="icon"><use href="#i-download"/></svg>Exporter vers Excel</button>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3><svg class="icon"><use href="#i-book"/></svg>Bibliothèques</h3>
+            <p class="card-sub">Chaque bibliothèque (Primaire, Maternelle...) a ses propres livres, élèves et prêts. Les actions ci-dessous concernent la bibliothèque ouverte : <strong id="settingsLibraryName">Primaire</strong>.</p>
+            <div class="settings-actions">
+              <button id="libraryActionCreate" type="button" class="btn ghost"><svg class="icon"><use href="#i-plus"/></svg>Créer une bibliothèque</button>
+              <button id="libraryActionRename" type="button" class="btn ghost"><svg class="icon"><use href="#i-edit"/></svg>Renommer</button>
+              <button id="libraryActionDelete" type="button" class="btn ghost danger-text"><svg class="icon"><use href="#i-trash"/></svg>Supprimer</button>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3><svg class="icon"><use href="#i-lock"/></svg>Mot de passe</h3>
+            <p class="card-sub">Un mot de passe empêche les enfants d'ouvrir l'application sans vous. Il est demandé à chaque lancement, et le bouton « Verrouiller » apparaît en haut de l'écran.</p>
+            <div class="settings-actions">
+              <button id="authSetBtn" type="button" class="btn ghost">Définir ou changer le mot de passe</button>
+              <button id="authRemoveBtn" type="button" class="btn ghost">Retirer le mot de passe</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="welcomeModal" class="modal hidden">
+        <div class="modal-content modal-wide welcome">
+          <div class="panel-header">
+            <h2>Bienvenue dans Biblio-rians 👋</h2>
+            <button id="welcomeSkip" class="ghost" type="button"><svg class="icon"><use href="#i-x"/></svg>Plus tard</button>
           </div>
-          <div class="confirm-actions" style="justify-content: flex-start; margin-top: 10px;">
-            <button id="authSetBtn" type="button">Definir un mot de passe</button>
-            <button id="authRemoveBtn" type="button">Retirer le mot de passe</button>
+          <div class="welcome-step" id="welcomeStep1">
+            <p class="card-sub">Quelques informations pour commencer. Tout pourra être modifié plus tard.</p>
+            <h3><span class="step-num">1</span>L'année scolaire en cours</h3>
+            <div class="field">
+              <input id="welcomeYear" placeholder="Ex : 2026-2027" aria-label="Année scolaire en cours" />
+            </div>
+            <h3><span class="step-num">2</span>Vos classes</h3>
+            <p class="hint">Une ligne par classe : le niveau et le nom de l'enseignant(e). Laissez vide si vous préférez le faire plus tard.</p>
+            <datalist id="levelOptions">
+              <option value="TPS"></option><option value="PS"></option><option value="MS"></option><option value="GS"></option>
+              <option value="CP"></option><option value="CE1"></option><option value="CE2"></option><option value="CM1"></option><option value="CM2"></option>
+            </datalist>
+            <div id="welcomeClasses" class="welcome-classes"></div>
+            <button type="button" class="btn ghost" id="welcomeAddClass"><svg class="icon"><use href="#i-plus"/></svg>Ajouter une ligne</button>
+            <div class="welcome-actions">
+              <button type="button" class="btn ghost" id="welcomeRestore"><svg class="icon"><use href="#i-upload"/></svg>J'ai déjà une sauvegarde</button>
+              <button type="button" class="btn" id="welcomeCreate"><svg class="icon"><use href="#i-check"/></svg>Continuer</button>
+            </div>
           </div>
-          <h3 class="manage-section-title">Sauvegardes</h3>
-          <p class="card-sub">Une sauvegarde automatique est faite chaque jour sur cet ordinateur. Pour vous protéger d'une panne, faites aussi régulièrement une sauvegarde sur une clé USB.</p>
-          <div class="confirm-actions" style="justify-content: flex-start;">
-            <button id="backupSaveBtn" type="button"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder sur une clé USB</button>
-            <button id="backupRestoreBtn" type="button"><svg class="icon"><use href="#i-upload"/></svg>Restaurer une sauvegarde</button>
-            <button id="backupAutoRestoreBtn" type="button"><svg class="icon"><use href="#i-clock"/></svg>Revenir à un jour précédent</button>
+          <div class="welcome-step hidden" id="welcomeStep2">
+            <h3><span class="step-num">3</span>Les élèves et les livres</h3>
+            <p class="card-sub" id="welcomeDoneText">C'est prêt ! Ajoutez maintenant vos élèves et vos livres.</p>
+            <div class="welcome-choices">
+              <button type="button" class="tile" id="welcomeOneByOne">
+                <div class="tile-icon"><svg class="icon"><use href="#i-user-plus"/></svg></div>
+                <h3>Un par un</h3>
+                <p>Pratique pour quelques élèves ou livres.</p>
+              </button>
+              <button type="button" class="tile" id="welcomeExcel">
+                <div class="tile-icon"><svg class="icon"><use href="#i-download"/></svg></div>
+                <h3>Avec une liste Excel</h3>
+                <p>Téléchargez le modèle, remplissez-le, puis importez-le (Réglages &gt; Importer un fichier).</p>
+              </button>
+            </div>
+            <div class="welcome-actions">
+              <button type="button" class="btn" id="welcomeFinish">Terminer</button>
+            </div>
           </div>
         </div>
       </section>
@@ -423,12 +491,12 @@
                   <option value="xlsx">Excel (XLSX)</option>
                 </select>
               </label>
-              <div class="export-note">Choisissez les donnees et les champs a exporter.<br />Ces fichiers contiennent les noms des élèves : rangez-les en lieu sûr et supprimez-les quand ils ne servent plus.</div>
+              <div class="export-note">Choisissez les données et les champs à exporter.<br />Ces fichiers contiennent les noms des élèves : rangez-les en lieu sûr et supprimez-les quand ils ne servent plus.</div>
             </div>
             <div class="export-grid">
               <div class="panel subpanel export-card">
                 <div class="export-card-head">
-                  <h3>Jeux de donnees</h3>
+                  <h3>Jeux de données</h3>
                   <div class="export-actions">
                     <button type="button" class="export-toggle" data-target="#exportDatasets" data-action="all">Tout</button>
                     <button type="button" class="export-toggle" data-target="#exportDatasets" data-action="none">Aucun</button>
@@ -436,11 +504,11 @@
                 </div>
                 <div id="exportDatasets" class="export-options">
                   <label class="checkbox"><input type="checkbox" name="dataset" value="books" checked /> Livres</label>
-                  <label class="checkbox"><input type="checkbox" name="dataset" value="students" checked /> Eleves</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="students" checked /> Élèves</label>
                   <label class="checkbox"><input type="checkbox" name="dataset" value="classes" checked /> Classes</label>
-                  <label class="checkbox"><input type="checkbox" name="dataset" value="school_years" checked /> Annees scolaires</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="school_years" checked /> Années scolaires</label>
                   <label class="checkbox"><input type="checkbox" name="dataset" value="loans" checked /> Emprunts</label>
-                  <label class="checkbox"><input type="checkbox" name="dataset" value="student_history" checked /> Historique eleves</label>
+                  <label class="checkbox"><input type="checkbox" name="dataset" value="student_history" checked /> Historique élèves</label>
                 </div>
               </div>
               <div class="panel subpanel export-card">
@@ -457,16 +525,16 @@
                   <label class="checkbox"><input type="checkbox" data-field="books.title" checked /> Titre</label>
                   <label class="checkbox"><input type="checkbox" data-field="books.author" checked /> Auteur</label>
                   <label class="checkbox"><input type="checkbox" data-field="books.isbn" checked /> ISBN</label>
-                  <label class="checkbox"><input type="checkbox" data-field="books.year" checked /> Annee</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.year" checked /> Année</label>
                   <label class="checkbox"><input type="checkbox" data-field="books.copies" checked /> Exemplaires</label>
-                  <label class="checkbox"><input type="checkbox" data-field="books.numero" checked /> Numero</label>
+                  <label class="checkbox"><input type="checkbox" data-field="books.numero" checked /> Numéro</label>
                   <label class="checkbox"><input type="checkbox" data-field="books.location" checked /> Emplacement</label>
                 </div>
                 <div class="field-group">
-                  <div class="field-group-title">Eleves</div>
-                  <label class="checkbox"><input type="checkbox" data-field="students.student_name" checked /> Eleve</label>
+                  <div class="field-group-title">Élèves</div>
+                  <label class="checkbox"><input type="checkbox" data-field="students.student_name" checked /> Élève</label>
                   <label class="checkbox"><input type="checkbox" data-field="students.class_name" checked /> Classe</label>
-                  <label class="checkbox"><input type="checkbox" data-field="students.school_year" checked /> Annee scolaire</label>
+                  <label class="checkbox"><input type="checkbox" data-field="students.school_year" checked /> Année scolaire</label>
                   <label class="checkbox"><input type="checkbox" data-field="students.birth_year" checked /> Naissance</label>
                 </div>
                 <div class="field-group">
@@ -474,28 +542,28 @@
                   <label class="checkbox"><input type="checkbox" data-field="classes.name" checked /> Classe</label>
                   <label class="checkbox"><input type="checkbox" data-field="classes.teacher_name" checked /> Professeur</label>
                   <label class="checkbox"><input type="checkbox" data-field="classes.level" checked /> Niveau</label>
-                  <label class="checkbox"><input type="checkbox" data-field="classes.school_year" checked /> Annee</label>
+                  <label class="checkbox"><input type="checkbox" data-field="classes.school_year" checked /> Année</label>
                 </div>
                 <div class="field-group">
-                  <div class="field-group-title">Annees scolaires</div>
-                  <label class="checkbox"><input type="checkbox" data-field="school_years.name" checked /> Annee</label>
+                  <div class="field-group-title">Années scolaires</div>
+                  <label class="checkbox"><input type="checkbox" data-field="school_years.name" checked /> Année</label>
                 </div>
                 <div class="field-group">
                   <div class="field-group-title">Emprunts</div>
                   <label class="checkbox"><input type="checkbox" data-field="loans.book_title" checked /> Livre</label>
-                  <label class="checkbox"><input type="checkbox" data-field="loans.student_name" checked /> Eleve</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.student_name" checked /> Élève</label>
                   <label class="checkbox"><input type="checkbox" data-field="loans.loan_date" checked /> Date emprunt</label>
-                  <label class="checkbox"><input type="checkbox" data-field="loans.due_date" checked /> Retour prevu</label>
+                  <label class="checkbox"><input type="checkbox" data-field="loans.due_date" checked /> Retour prévu</label>
                   <label class="checkbox"><input type="checkbox" data-field="loans.return_date" checked /> Retour</label>
                 </div>
                 <div class="field-group">
-                  <div class="field-group-title">Historique eleves</div>
-                  <label class="checkbox"><input type="checkbox" data-field="student_history.student_name" checked /> Eleve</label>
+                  <div class="field-group-title">Historique élèves</div>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.student_name" checked /> Élève</label>
                   <label class="checkbox"><input type="checkbox" data-field="student_history.class_name" checked /> Classe</label>
-                  <label class="checkbox"><input type="checkbox" data-field="student_history.school_year" checked /> Annee</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.school_year" checked /> Année</label>
                   <label class="checkbox"><input type="checkbox" data-field="student_history.teacher_name" checked /> Professeur</label>
                   <label class="checkbox"><input type="checkbox" data-field="student_history.level" checked /> Niveau</label>
-                  <label class="checkbox"><input type="checkbox" data-field="student_history.start_date" checked /> Debut</label>
+                  <label class="checkbox"><input type="checkbox" data-field="student_history.start_date" checked /> Début</label>
                   <label class="checkbox"><input type="checkbox" data-field="student_history.end_date" checked /> Fin</label>
                 </div>
                 </div>
@@ -511,17 +579,17 @@
       <section id="closeYearModal" class="modal hidden">
         <div class="modal-content modal-wide">
           <div class="panel-header">
-            <h2><svg class="icon"><use href="#i-alert"/></svg>Cloturer une annee</h2>
+            <h2><svg class="icon"><use href="#i-alert"/></svg>Clôturer une année</h2>
             <button id="closeYearClose" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
           </div>
           <form id="closeYearForm">
             <div class="field-row">
               <div class="field">
-                <label for="closeYearCurrent">Annee a cloturer</label>
+                <label for="closeYearCurrent">Année à clôturer</label>
                 <select id="closeYearCurrent" name="current_year_id" required></select>
               </div>
               <div class="field">
-                <label for="closeYearNext">Nouvelle annee scolaire</label>
+                <label for="closeYearNext">Nouvelle année scolaire</label>
                 <input id="closeYearNext" name="next_year_name" placeholder="Ex : 2026-2027" required />
               </div>
             </div>
@@ -529,7 +597,7 @@
               <h3>Classes et passages</h3>
               <div id="closeYearClasses"></div>
             </div>
-            <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Cloturer l'annee</button>
+            <button type="submit"><svg class="icon"><use href="#i-check"/></svg>Clôturer l'année</button>
           </form>
         </div>
       </section>
@@ -540,10 +608,10 @@
             <h2><svg class="icon"><use href="#i-alert"/></svg>Confirmation</h2>
             <button id="closeYearConfirmClose" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
           </div>
-          <p class="close-year-text">Vous etes sur le point de cloturer l'annee. Cette action est irreversible.</p>
+          <p class="close-year-text">Vous êtes sur le point de clôturer l'année. Cette action est irréversible.</p>
           <div class="confirm-actions">
             <button id="closeYearConfirmNo" class="ghost">Annuler</button>
-            <button id="closeYearConfirmYes" class="close-year-btn"><svg class="icon"><use href="#i-check"/></svg>Oui, cloturer</button>
+            <button id="closeYearConfirmYes" class="close-year-btn"><svg class="icon"><use href="#i-check"/></svg>Oui, clôturer</button>
           </div>
         </div>
       </section>
@@ -551,17 +619,17 @@
       <section id="historyModal" class="modal hidden">
         <div class="modal-content">
           <div class="panel-header">
-            <h2><svg class="icon"><use href="#i-clock"/></svg>Historique de l'eleve</h2>
+            <h2><svg class="icon"><use href="#i-clock"/></svg>Historique de l'élève</h2>
             <button id="historyClose" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Annee</th>
+                <th>Année</th>
                 <th>Classe</th>
                 <th>Professeur</th>
                 <th>Niveau</th>
-                <th>Debut</th>
+                <th>Début</th>
                 <th>Fin</th>
               </tr>
             </thead>
@@ -587,7 +655,7 @@
               <div class="book-preview-stats">
                 <div>Exemplaires: <strong id="bookPreviewCopies"></strong></div>
                 <div>Dispo: <strong id="bookPreviewAvailable"></strong></div>
-                <div>En pret: <strong id="bookPreviewOnLoan"></strong></div>
+                <div>En prêt: <strong id="bookPreviewOnLoan"></strong></div>
               </div>
             </div>
           </div>
@@ -603,12 +671,12 @@
           <div class="stat-strip" id="statsSummary"></div>
           <div class="export-grid">
             <div class="panel subpanel export-card">
-              <div class="export-card-head"><h3>Livres les plus empruntes</h3></div>
+              <div class="export-card-head"><h3>Livres les plus empruntés</h3></div>
               <table>
                 <thead><tr><th>Livre</th><th>Emprunts</th></tr></thead>
                 <tbody id="statsTopBooks"></tbody>
               </table>
-              <p class="hint" id="statsTopBooksEmpty">Aucun emprunt enregistre pour l'instant.</p>
+              <p class="hint" id="statsTopBooksEmpty">Aucun emprunt enregistré pour l'instant.</p>
             </div>
             <div class="panel subpanel export-card">
               <div class="export-card-head"><h3>Classes les plus actives</h3></div>
@@ -616,56 +684,72 @@
                 <thead><tr><th>Classe</th><th>Emprunts</th></tr></thead>
                 <tbody id="statsTopClasses"></tbody>
               </table>
-              <p class="hint" id="statsTopClassesEmpty">Aucun emprunt enregistre pour l'instant.</p>
+              <p class="hint" id="statsTopClassesEmpty">Aucun emprunt enregistré pour l'instant.</p>
             </div>
           </div>
         </div>
       </section>
 
       <section id="tab-loans" class="tab">
-        <div class="panel">
-          <h2><svg class="icon"><use href="#i-swap"/></svg>Scanner un livre</h2>
-          <form id="loanForm" class="loan-form">
-            <div class="loan-flow">
-              <div class="loan-step">
-                <h3>1. Choisir la classe</h3>
-                <select id="loanClass"></select>
-                <div id="loanClassBadge" class="class-badge">Classe: Toutes</div>
-                <h3>2. Choisir l'eleve</h3>
-                <select name="student_id" id="loanStudent"></select>
-                <div id="loanStudentBadge" class="student-badge">Eleve: Aucun</div>
-              </div>
-              <div class="loan-step">
-                <h3>3. Scanner le livre</h3>
-                <input id="loanIsbn" class="loan-input-big" placeholder="ISBN scanne" />
-                <div class="loan-help">Astuce: vous pouvez scanner avant OU apres l'eleve.</div>
-                <div id="loanSelectedBook" class="loan-selected">Aucun livre selectionne</div>
-                <select name="book_id" id="loanBook"></select>
-              </div>
-              <div class="loan-step">
-                <h3>4. Valider l'emprunt</h3>
-                <label class="loan-due-label">Retour prevu le
-                  <input type="date" id="loanDueDate" name="due_date" />
-                </label>
-                <div class="loan-help">Retour: supprimez dans Emprunts ou choisissez la classe et scannez le livre.</div>
-                <button type="submit" id="loanSubmitBtn" class="loan-submit"><svg class="icon"><use href="#i-check"/></svg>Valider l'emprunt</button>
-              </div>
+        <div class="panel loan-desk">
+          <div class="mode-switch" role="tablist" aria-label="Que voulez-vous faire ?">
+            <button type="button" class="mode-btn active" data-mode="lend" role="tab" aria-selected="true"><svg class="icon"><use href="#i-book"/></svg>Prêter un livre</button>
+            <button type="button" class="mode-btn" data-mode="return" role="tab" aria-selected="false"><svg class="icon"><use href="#i-check"/></svg>Rendre un livre</button>
+          </div>
+
+          <div id="lendPanel" class="desk-panel">
+            <div class="desk-grid">
+              <section class="desk-step">
+                <h3><span class="step-num">1</span>Qui emprunte ?</h3>
+                <select id="deskClassFilter" aria-label="Classe de l'élève"></select>
+                <input id="deskStudentSearch" class="desk-input" type="search" placeholder="Tapez le nom ou le prénom" autocomplete="off" aria-label="Rechercher l'élève" />
+                <div id="deskStudentResults" class="pick-list" aria-live="polite"></div>
+                <div id="deskStudentChosen" class="chosen hidden"></div>
+              </section>
+              <section class="desk-step">
+                <h3><span class="step-num">2</span>Quel livre ?</h3>
+                <input id="deskBookSearch" class="desk-input" type="search" placeholder="Scannez le code-barres ou tapez le titre" autocomplete="off" aria-label="Rechercher le livre" />
+                <div id="deskBookResults" class="pick-list" aria-live="polite"></div>
+                <div id="deskBookChosen" class="chosen hidden"></div>
+              </section>
+              <section class="desk-step">
+                <h3><span class="step-num">3</span>Valider</h3>
+                <label class="desk-label" for="deskDueDate">À rendre le</label>
+                <input type="date" id="deskDueDate" class="desk-input" />
+                <button type="button" id="deskLendBtn" class="btn loan-submit" disabled><svg class="icon"><use href="#i-check"/></svg>Valider le prêt</button>
+                <p class="hint" id="deskLendHint">Choisissez un élève et un livre.</p>
+              </section>
             </div>
-          </form>
+          </div>
+
+          <div id="returnPanel" class="desk-panel hidden">
+            <h3>Scannez le livre rapporté, ou tapez son titre ou le nom de l'élève</h3>
+            <input id="deskReturnSearch" class="desk-input desk-input-big" type="search" placeholder="Code-barres, titre ou nom de l'élève" autocomplete="off" aria-label="Rechercher le prêt à rendre" />
+            <div id="deskReturnResults" class="pick-list" aria-live="polite"></div>
+            <p class="hint">Un livre scanné est rendu tout de suite. Si plusieurs élèves ont le même livre, l'application vous demande lequel le rapporte.</p>
+          </div>
         </div>
+
         <div class="panel">
           <div class="panel-header">
-            <h2><svg class="icon"><use href="#i-clock"/></svg>Emprunts</h2>
-            <button type="button" class="btn ghost hidden" id="overdueFilterBtn"><svg class="icon"><use href="#i-clock"/></svg><span id="overdueFilterLabel">Voir uniquement les retards</span></button>
+            <h2><svg class="icon"><use href="#i-clock"/></svg>Prêts</h2>
+            <div class="loan-filters">
+              <button type="button" class="loan-filter-btn active" data-filter="active">En cours</button>
+              <button type="button" class="loan-filter-btn" data-filter="overdue">En retard<span id="loanFilterOverdueCount"></span></button>
+              <button type="button" class="loan-filter-btn" data-filter="history">Livres rendus</button>
+              <button type="button" class="btn ghost hidden" id="printOverdueBtn"><svg class="icon"><use href="#i-printer"/></svg>Imprimer les retards</button>
+            </div>
           </div>
-          <table>
+          <input id="loanTableSearch" class="table-search" type="search" placeholder="Rechercher (livre, élève, classe)..." />
+          <table id="loansTableEl">
             <thead>
               <tr>
                 <th>Livre</th>
-                <th>Eleve</th>
-                <th>Date</th>
-                <th>Retour prevu</th>
-                <th>Retour</th>
+                <th>Élève</th>
+                <th>Classe</th>
+                <th>Prêté le</th>
+                <th>À rendre le</th>
+                <th>Rendu le</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -673,14 +757,14 @@
           </table>
           <div class="empty-state hidden" id="loansEmptyState">
             <div class="big-icon"><svg class="icon"><use href="#i-swap"/></svg></div>
-            <h3 id="loansEmptyTitle">Aucun emprunt en cours</h3>
-            <p id="loansEmptyText">Scannez un livre ci-dessus pour enregistrer un premier emprunt.</p>
+            <h3 id="loansEmptyTitle">Aucun prêt en cours</h3>
+            <p id="loansEmptyText">Choisissez « Prêter un livre » ci-dessus pour enregistrer un prêt.</p>
           </div>
         </div>
       </section>
     </main>
 
-    <footer id="statusBar">Pret.</footer>
+    <footer id="statusBar">Prêt.</footer>
 
     <div class="dialog-overlay hidden" id="confirmDialogOverlay">
       <div class="dialog-box">
@@ -718,6 +802,10 @@
 
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
+    <div id="printArea" class="print-area" aria-hidden="true"></div>
+
     <script src="./app.js"></script>
+    <script src="./loan-desk.js"></script>
+    <script src="./welcome.js"></script>
   </body>
 </html>

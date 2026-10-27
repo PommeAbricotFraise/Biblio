@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   booksUpdate: (payload) => ipcRenderer.invoke('books:update', payload),
   booksDelete: (id) => ipcRenderer.invoke('books:delete', id),
   booksLookup: (isbn) => ipcRenderer.invoke('books:lookup', isbn),
+  booksSetCover: (id, coverUrl) => ipcRenderer.invoke('books:setCover', id, coverUrl),
 
   studentsList: () => ipcRenderer.invoke('students:list'),
   studentsAdd: (payload) => ipcRenderer.invoke('students:add', payload),
@@ -30,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   classesDelete: (id) => ipcRenderer.invoke('classes:delete', id),
 
   loansList: () => ipcRenderer.invoke('loans:list'),
+  loansHistory: () => ipcRenderer.invoke('loans:history'),
   loansAdd: (payload) => ipcRenderer.invoke('loans:add', payload),
   loansReturn: (id) => ipcRenderer.invoke('loans:return', id),
   loansReturnByBook: (payload) => ipcRenderer.invoke('loans:returnByBook', payload),
@@ -46,6 +48,7 @@ contextBridge.exposeInMainWorld('api', {
 
   dataExportCustom: (payload) => ipcRenderer.invoke('data:exportCustom', payload),
   importPick: (options) => ipcRenderer.invoke('import:pick', options),
+  dataTemplate: () => ipcRenderer.invoke('data:template'),
   backupSave: () => ipcRenderer.invoke('backup:save'),
   backupStatus: () => ipcRenderer.invoke('backup:status')
 });

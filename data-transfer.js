@@ -69,6 +69,11 @@ function intOrNull(value) {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+function httpsOrNull(value) {
+  const url = text(value);
+  return /^https:\/\/[^\s"'<>]+$/.test(url) ? url.slice(0, 500) : null;
+}
+
 function idKey(value) {
   return value === undefined || value === null || value === '' ? null : String(value);
 }
@@ -176,9 +181,9 @@ function replaceAllData(db, data) {
     rows('books').forEach((b) => {
       const copies = intOrNull(b.copies);
       const id = insertAndGetId(db,
-        'INSERT INTO books (id, isbn, title, author, year, copies, numero, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO books (id, isbn, title, author, year, copies, numero, location, cover_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [intOrNull(b.id), textOrNull(b.isbn), text(b.title) || 'Sans titre', textOrNull(b.author), intOrNull(b.year),
-          copies && copies > 0 ? copies : 1, textOrNull(b.numero), textOrNull(b.location), b.created_at || now]);
+          copies && copies > 0 ? copies : 1, textOrNull(b.numero), textOrNull(b.location), httpsOrNull(b.cover_url), b.created_at || now]);
       bookIds.add(id);
     });
 
@@ -225,7 +230,7 @@ function replaceAllData(db, data) {
 
 function normalizeSheetName(name) {
   const key = String(name || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '_');
   if (TABLES.includes(key)) return key;
   if (key.includes('annee')) return 'school_years';
@@ -238,6 +243,54 @@ function normalizeSheetName(name) {
 }
 
 /*
+ * Titres de colonnes en francais (modele Excel, fichiers faits a la main)
+ * -> noms internes. Les cles sont normalisees : minuscules, sans accents,
+ * espaces et apostrophes remplaces par "_".
+ */
+const COLUMN_ALIASES = {
+  books: {
+    titre: 'title', auteur: 'author', auteurs: 'author', annee: 'year', annee_de_publication: 'year',
+    exemplaires: 'copies', nombre_d_exemplaires: 'copies', nb_exemplaires: 'copies',
+    numero: 'numero', cote: 'numero', emplacement: 'location', rayon: 'location'
+  },
+  students: {
+    nom: 'last_name', nom_de_famille: 'last_name', prenom: 'first_name', eleve: 'student_name',
+    classe: 'class_name', niveau: 'level', enseignant: 'teacher_name', enseignante: 'teacher_name',
+    professeur: 'teacher_name', annee_scolaire: 'school_year', annee_de_naissance: 'birth_year', naissance: 'birth_year'
+  },
+  classes: {
+    classe: 'name', nom: 'name', niveau: 'level', enseignant: 'teacher_name', enseignante: 'teacher_name',
+    professeur: 'teacher_name', annee_scolaire: 'school_year', annee: 'school_year'
+  },
+  school_years: { annee: 'name', annee_scolaire: 'name', nom: 'name' },
+  loans: {
+    livre: 'book_title', titre: 'book_title', eleve: 'student_name', classe: 'class_name',
+    date_emprunt: 'loan_date', date_d_emprunt: 'loan_date', retour_prevu: 'due_date', retour: 'return_date'
+  }
+};
+
+function normalizeColumnName(name) {
+  return String(name || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function applyColumnAliases(dataset, row) {
+  const aliases = COLUMN_ALIASES[dataset];
+  if (!aliases || !row || typeof row !== 'object') return row;
+  const out = {};
+  Object.entries(row).forEach(([key, value]) => {
+    const target = aliases[normalizeColumnName(key)];
+    if (target && row[target] === undefined) {
+      out[target] = value;
+    } else {
+      out[key] = value;
+    }
+  });
+  return out;
+}
+
+/*
  * Transforme les feuilles d'un classeur ({ nomFeuille: lignes }) en jeux de
  * donnees. L'export Excel de l'application met tout dans une seule feuille
  * avec une colonne "dataset" : on la redistribue.
@@ -246,7 +299,7 @@ function sheetsToData(sheets) {
   const out = {};
   const push = (key, row) => {
     if (!out[key]) out[key] = [];
-    out[key].push(row);
+    out[key].push(applyColumnAliases(key, row));
   };
   Object.entries(sheets || {}).forEach(([sheetName, rows]) => {
     const fallbackKey = normalizeSheetName(sheetName);
@@ -308,7 +361,11 @@ function mergeData(db, data, datasets = TABLES) {
   function resolveClassId(row) {
     const mapped = classMap.get(idKey(row.class_id));
     if (mapped) return mapped;
-    const name = text(row.class_name) || text(row.class);
+    let name = text(row.class_name) || text(row.class);
+    if (!name && (text(row.level) || text(row.teacher_name))) {
+      // meme nom automatique que lors de la creation d'une classe dans l'application
+      name = `Classe ${text(row.level)} ${text(row.teacher_name)}`.replace(/\s+/g, ' ').trim();
+    }
     return name ? getOrCreateClass(row, name) : null;
   }
 
@@ -384,9 +441,9 @@ function mergeData(db, data, datasets = TABLES) {
         if (!title) { report.skipped += 1; return; }
         const copies = intOrNull(b.copies);
         id = insertAndGetId(db,
-          'INSERT INTO books (isbn, title, author, year, copies, numero, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO books (isbn, title, author, year, copies, numero, location, cover_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [textOrNull(b.isbn), title, textOrNull(b.author), intOrNull(b.year), copies && copies > 0 ? copies : 1,
-            textOrNull(b.numero), textOrNull(b.location), b.created_at || now]);
+            textOrNull(b.numero), textOrNull(b.location), httpsOrNull(b.cover_url), b.created_at || now]);
         report.books += 1;
       }
       if (id && idKey(b.id)) bookMap.set(idKey(b.id), id);

@@ -116,6 +116,25 @@ test('l\'export Excel de l\'application (une feuille, colonne dataset) se reimpo
   assert.equal(queryGet(db, 'SELECT isbn FROM books').isbn, '9782070612758', 'un ISBN numerique (Excel) est accepte');
 });
 
+test('un fichier Excel rempli a la main avec des titres de colonnes en francais est compris', async () => {
+  const db = await makeDb();
+  const data = sheetsToData({
+    'Élèves': [
+      { Nom: 'Martin', 'Prénom': 'Léa', Niveau: 'CE1', Enseignant: 'Mme Dupont', 'Année scolaire': '2026-2027' },
+      { Nom: 'Durand', 'Prénom': 'Noah', Niveau: 'CE1', Enseignant: 'Mme Dupont', 'Année scolaire': '2026-2027' }
+    ],
+    Livres: [{ Titre: 'Matilda', Auteur: 'Roald Dahl', ISBN: 9780141365466, 'Année': 1988, Exemplaires: 3 }],
+    "Mode d'emploi": [{ 'Comment remplir ce fichier': '1. Remplissez...' }]
+  });
+  const report = mergeData(db, data);
+  assert.equal(report.students, 2);
+  assert.equal(report.classes, 1, 'une seule classe creee pour les deux eleves');
+  assert.equal(report.books, 1);
+  const cls = queryGet(db, 'SELECT c.name, c.level, c.teacher_name, y.name AS year FROM classes c JOIN school_years y ON y.id = c.school_year_id');
+  assert.deepEqual(cls, { name: 'Classe CE1 Mme Dupont', level: 'CE1', teacher_name: 'Mme Dupont', year: '2026-2027' });
+  assert.deepEqual(queryGet(db, 'SELECT year, copies FROM books'), { year: 1988, copies: 3 });
+});
+
 test('replaceAllData restaure tout, y compris le numero des livres', async () => {
   const original = await makeDb();
   mergeData(original, sourceWithGaps());

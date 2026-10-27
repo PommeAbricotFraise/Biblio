@@ -36,7 +36,7 @@ function dailyBackupName(date = new Date()) {
 
 function safetyBackupName(reason, date = new Date()) {
   const slug = String(reason || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return `securite-${localTimeStamp(date)}${slug ? `-${slug}` : ''}.json`;
 }

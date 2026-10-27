@@ -42,6 +42,13 @@ test('getStatistics counts totals correctly', async () => {
   assert.equal(stats.studentsTotal, 2);
 });
 
+test('getStatistics: un livre a rendre aujourd\'hui n\'est pas encore en retard', async () => {
+  const db = await makeSeededDb();
+  db.run('UPDATE loans SET due_date = ? WHERE return_date IS NULL', ['2026-03-10']);
+  assert.equal(getStatistics(db, '2026-03-10').overdueLoans, 0);
+  assert.equal(getStatistics(db, '2026-03-11').overdueLoans, 1);
+});
+
 test('getStatistics finds the never-borrowed book', async () => {
   const db = await makeSeededDb();
   const stats = getStatistics(db);

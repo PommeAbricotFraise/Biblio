@@ -8,6 +8,39 @@ function escapeHtml(value) {
   }[ch]));
 }
 
+/* Texte de recherche : minuscules, sans accents (« eleve » trouve « Élève »). */
+function normalizeSearch(value) {
+  return String(value === undefined || value === null ? '' : value)
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/* Libelle d'une classe sans ambiguite : « 2025-2026 · Classe CE1 Mme Dupont ». */
+function classLabel(c) {
+  if (!c) return '';
+  const name = c.name || 'Classe';
+  const teacher = c.teacher_name && !name.includes(c.teacher_name) ? ` (${c.teacher_name})` : '';
+  return `${c.school_year ? `${c.school_year} · ` : ''}${name}${teacher}`;
+}
+
+/* Date locale AAAA-MM-JJ (et non UTC, qui decale d'un jour le soir). */
+function localDateString(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/* Imprime un contenu precis (liste des retards...) au lieu de la page entiere. */
+function printHtml(html) {
+  const area = document.getElementById('printArea');
+  if (!area) return;
+  area.innerHTML = html;
+  document.body.classList.add('print-custom');
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove('print-custom');
+    area.innerHTML = '';
+  }, 500);
+}
+
 const lockScreen = document.getElementById('lockScreen');
 const lockForm = document.getElementById('lockForm');
 const lockPassword = document.getElementById('lockPassword');
@@ -334,7 +367,7 @@ function setActiveTab(tabKey) {
   tabSections[tabKey].classList.add('active');
   window.scrollTo(0, 0);
   if (tabKey === 'loans') {
-    setTimeout(() => loanIsbn && loanIsbn.focus(), 50);
+    if (typeof focusDesk === 'function') focusDesk();
   } else if (tabKey === 'books') {
     focusBookIsbnInput();
   }
@@ -385,16 +418,6 @@ const bookPreviewCoverLoader = document.getElementById('bookPreviewCoverLoader')
 const bookPreviewCopies = document.getElementById('bookPreviewCopies');
 const bookPreviewAvailable = document.getElementById('bookPreviewAvailable');
 const bookPreviewOnLoan = document.getElementById('bookPreviewOnLoan');
-const loanForm = document.getElementById('loanForm');
-const loanClass = document.getElementById('loanClass');
-const loanStudent = document.getElementById('loanStudent');
-const loanIsbn = document.getElementById('loanIsbn');
-const loanBook = document.getElementById('loanBook');
-const loanDueDate = document.getElementById('loanDueDate');
-const loanSubmitBtn = document.getElementById('loanSubmitBtn');
-const loanSelectedBook = document.getElementById('loanSelectedBook');
-const loanClassBadge = document.getElementById('loanClassBadge');
-const loanStudentBadge = document.getElementById('loanStudentBadge');
 const bookSortButtons = document.querySelectorAll('.book-sort');
 
 let cachedBooks = [];
@@ -418,9 +441,9 @@ function setAddModalContext(formType, options = {}) {
   const showChoices = options.showChoices !== false;
   const type = formType || 'school_year';
   const titles = {
-    school_year: 'Ajouter une annee scolaire',
+    school_year: 'Ajouter une année scolaire',
     class: 'Ajouter une classe',
-    student: 'Ajouter un eleve'
+    student: 'Ajouter un élève'
   };
 
   if (addSelector) {
@@ -446,10 +469,12 @@ function openAddModalFor(formType, options = {}) {
   }
 }
 
-openAddTab.addEventListener('click', () => {
-  const active = document.querySelector('.add-choice-btn.active');
-  openAddModalFor(active ? active.dataset.add : 'school_year', { showChoices: true });
-});
+if (openAddTab) {
+  openAddTab.addEventListener('click', () => {
+    const active = document.querySelector('.add-choice-btn.active');
+    openAddModalFor(active ? active.dataset.add : 'school_year', { showChoices: true });
+  });
+}
 
 if (addClassBtn) {
   addClassBtn.addEventListener('click', () => openAddModalFor('class', { showChoices: false }));
@@ -518,7 +543,7 @@ async function runImportPick(options) {
     await refreshLibraries(librarySelect ? librarySelect.value : null);
     await refreshAll();
     await updateLibraryStatus();
-    setStatus(res.message || 'Import termine.', false);
+    setStatus(res.message || 'Import terminé.', false);
   } catch (err) {
     setStatus('Import impossible : ' + err.message, true);
   }
@@ -560,10 +585,10 @@ async function runBackupSave() {
   try {
     const res = await window.api.backupSave();
     if (!res || res.canceled) {
-      setStatus('Sauvegarde annulee.', false);
+      setStatus('Sauvegarde annulée.', false);
       return;
     }
-    setStatus(res.message || 'Sauvegarde enregistree.', false);
+    setStatus(res.message || 'Sauvegarde enregistrée.', false);
     playSuccessSound();
   } catch (err) {
     setStatus('Sauvegarde impossible : ' + err.message, true);
@@ -677,7 +702,7 @@ async function runExport(options) {
     a.download = `biblio-export-${stamp}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
-    setStatus('Export Excel termine.');
+    setStatus('Export Excel terminé.');
     return;
   }
 
@@ -688,7 +713,7 @@ async function runExport(options) {
   a.download = `biblio-export-${stamp}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  setStatus('Export JSON termine.');
+  setStatus('Export JSON terminé.');
 }
 
 if (exportForm) {
@@ -698,7 +723,7 @@ if (exportForm) {
     const fields = buildExportFields();
     const format = exportFormat ? exportFormat.value : 'json';
     if (!datasets.length) {
-      setStatus('Choisissez au moins un jeu de donnees.', true);
+      setStatus('Choisissez au moins un jeu de données.', true);
       return;
     }
     exportModal.classList.add('hidden');
@@ -748,10 +773,8 @@ async function updateLibraryStatus() {
     const label = info.library || 'primaire';
     updateLibraryBadge(label);
     const displayName = (librariesCache.find((item) => item.key === label) || {}).name || label;
-    setStatus(
-      `Bibliotheque active: ${displayName} (livres: ${info.counts.books}, eleves: ${info.counts.students}).`,
-      false
-    );
+    // Simple information dans la barre du bas : pas de notification a chaque ouverture.
+    statusBar.textContent = `Bibliothèque active: ${displayName} (livres: ${info.counts.books}, élèves: ${info.counts.students}).`;
   } catch (e) {
     // ignore status errors
   }
@@ -764,7 +787,7 @@ async function switchLibrary(next) {
     return;
   }
   updateLibraryBadge(next);
-  setStatus('Changement de bibliotheque...', false);
+  setStatus('Changement de bibliothèque...', false);
   try {
     const active = await window.api.librarySet(next);
     await refreshLibraries(active || next);
@@ -773,6 +796,9 @@ async function switchLibrary(next) {
     await refreshAll();
     updateLibraryBadge(active || next);
     await updateLibraryStatus();
+    const opened = librariesCache.find((item) => item.key === (active || next));
+    showToast('ok', 'Bibliothèque ouverte', opened ? opened.name : '');
+    maybeShowWelcome();
   } catch (err) {
     setStatus('Changement impossible: ' + err.message, true);
   }
@@ -793,13 +819,13 @@ if (librarySelect) {
 
 async function createLibraryFlow() {
   if (!window.api || !window.api.libraryCreate) {
-    setStatus('Creation de base indisponible. Relancez l\'app.', true);
+    setStatus('Création de base indisponible. Relancez l\'app.', true);
     return;
   }
   const result = await promptDialog({
-    title: 'Creer une base',
-    fields: [{ label: 'Nom de la nouvelle base de livres', placeholder: 'Ex : Privee' }],
-    confirmLabel: 'Creer'
+    title: 'Créer une base',
+    fields: [{ label: 'Nom de la nouvelle base de livres', placeholder: 'Ex : Privée' }],
+    confirmLabel: 'Créer'
   });
   const name = result ? result[0] : null;
   if (!name || !name.trim()) return;
@@ -810,7 +836,7 @@ async function createLibraryFlow() {
       await switchLibrary(created.key);
     }
   } catch (err) {
-    setStatus('Creation impossible: ' + err.message, true);
+    setStatus('Création impossible: ' + err.message, true);
   }
 }
 
@@ -818,7 +844,7 @@ async function renameLibraryFlow() {
   const key = librarySelect ? librarySelect.value : '';
   if (!key) return;
   if (isCoreLibraryKey(key)) {
-    setStatus('Primaire et Maternelle ne peuvent pas etre renommees.', true);
+    setStatus('Primaire et Maternelle ne peuvent pas être renommées.', true);
     return;
   }
   if (!window.api || !window.api.libraryRename) {
@@ -847,7 +873,7 @@ async function deleteLibraryFlow() {
   const key = librarySelect ? librarySelect.value : '';
   if (!key) return;
   if (isCoreLibraryKey(key)) {
-    setStatus('Primaire et Maternelle ne peuvent pas etre supprimees.', true);
+    setStatus('Primaire et Maternelle ne peuvent pas être supprimées.', true);
     return;
   }
   if (!window.api || !window.api.libraryDelete) {
@@ -857,9 +883,9 @@ async function deleteLibraryFlow() {
   const current = librariesCache.find((item) => item.key === key);
   const result = await promptDialog({
     title: 'Supprimer cette base ?',
-    message: `Cette action supprime definitivement "${current ? current.name : key}" et tout son contenu (livres, eleves, emprunts). Tapez SUPPRIMER pour confirmer.`,
+    message: `Cette action supprime définitivement "${current ? current.name : key}" et tout son contenu (livres, élèves, emprunts). Tapez SUPPRIMER pour confirmer.`,
     fields: [{ label: 'Tapez SUPPRIMER pour confirmer', placeholder: 'SUPPRIMER' }],
-    confirmLabel: 'Supprimer definitivement'
+    confirmLabel: 'Supprimer définitivement'
   });
   const typed = result ? result[0] : null;
   if ((typed || '').trim().toUpperCase() !== 'SUPPRIMER') return;
@@ -880,7 +906,22 @@ async function deleteLibraryFlow() {
 if (manageLibraryBtn) {
   manageLibraryBtn.addEventListener('click', async () => {
     if (manageLibraryModal) {
+      const nameEl = document.getElementById('settingsLibraryName');
+      const active = librariesCache.find((item) => item.key === (librarySelect ? librarySelect.value : ''));
+      if (nameEl) nameEl.textContent = active ? active.name : '';
       manageLibraryModal.classList.remove('hidden');
+    }
+  });
+}
+
+const templateBtn = document.getElementById('templateBtn');
+if (templateBtn) {
+  templateBtn.addEventListener('click', async () => {
+    try {
+      const res = await window.api.dataTemplate();
+      if (res && !res.canceled) setStatus(res.message);
+    } catch (err) {
+      setStatus('Modèle impossible à enregistrer : ' + err.message, true);
     }
   });
 }
@@ -932,13 +973,13 @@ if (authSetBtn) {
     const current = await askCurrentPassword('Changer le mot de passe');
     if (current === null) return;
     const result = await promptDialog({
-      title: 'Definir un mot de passe',
-      message: 'Ce mot de passe sera demande a chaque lancement de l\'application. Notez-le en lieu sur : sans lui, il faudra l\'aide d\'une personne qui sait modifier les reglages de l\'ordinateur.',
+      title: 'Définir un mot de passe',
+      message: 'Ce mot de passe sera demandé à chaque lancement de l\'application. Notez-le en lieu sur : sans lui, il faudra l\'aide d\'une personne qui sait modifier les réglages de l\'ordinateur.',
       fields: [
-        { label: 'Nouveau mot de passe (4 caracteres minimum)', type: 'password' },
+        { label: 'Nouveau mot de passe (4 caractères minimum)', type: 'password' },
         { label: 'Confirmer le mot de passe', type: 'password' }
       ],
-      confirmLabel: 'Definir'
+      confirmLabel: 'Définir'
     });
     if (!result) return;
     const [pwd, confirmPwd] = result;
@@ -952,7 +993,7 @@ if (authSetBtn) {
     }
     try {
       await window.api.authSet(pwd, current);
-      setStatus('Mot de passe defini. Il sera demande au prochain lancement.');
+      setStatus('Mot de passe défini. Il sera demandé au prochain lancement.');
       refreshLockButton();
     } catch (err) {
       setStatus(err.message, true);
@@ -973,7 +1014,7 @@ if (authRemoveBtn) {
     if (!ok) return;
     try {
       await window.api.authSet('', current);
-      setStatus('Mot de passe retire.');
+      setStatus('Mot de passe retiré.');
       refreshLockButton();
     } catch (err) {
       setStatus(err.message, true);
@@ -1003,14 +1044,35 @@ addChoiceButtons.forEach((btn) => {
 
 async function buildCloseYearWizard() {
   const years = await window.api.yearsList();
-  closeYearCurrent.innerHTML = '<option value="">Choisir une annee a cloturer</option>'
+  closeYearCurrent.innerHTML = '<option value="">Choisir une année à clôturer</option>'
     + years.map((y) => `<option value="${escapeHtml(y.id)}">${escapeHtml(y.name)}</option>`).join('');
 
   if (years[0]) {
     closeYearCurrent.value = years[0].id;
+    if (!closeYearNext.value) closeYearNext.value = nextSchoolYearName(years[0].name);
   }
 
   await renderCloseYearClasses();
+}
+
+/* Passage au niveau suivant : PS -> MS -> GS -> CP -> ... -> CM2 (puis depart de l'ecole). */
+const LEVEL_SEQUENCE = ['TPS', 'PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
+
+function nextLevel(level) {
+  const clean = String(level || '').trim().toUpperCase();
+  const index = LEVEL_SEQUENCE.indexOf(clean);
+  if (index < 0) return { level: String(level || ''), leaving: false };
+  if (index === LEVEL_SEQUENCE.length - 1) return { level: '', leaving: true };
+  return { level: LEVEL_SEQUENCE[index + 1], leaving: false };
+}
+
+function nextSchoolYearName(name) {
+  const match = /^(\d{4})\s*[-/]\s*(\d{4})$/.exec(String(name || '').trim());
+  return match ? `${Number(match[1]) + 1}-${Number(match[2]) + 1}` : '';
+}
+
+function autoClassName(level, teacher) {
+  return `Classe ${level || ''} ${teacher || ''}`.replace(/\s+/g, ' ').trim();
 }
 
 async function renderCloseYearClasses() {
@@ -1025,20 +1087,46 @@ async function renderCloseYearClasses() {
   const classes = await window.api.classesList();
   const filtered = classes.filter((c) => String(c.school_year_id || '') === yearId);
 
-  closeYearClasses.innerHTML = filtered.map((c) => {
+  if (!filtered.length) {
+    closeYearClasses.innerHTML = '<p class="hint">Aucune classe dans cette année.</p>';
+    return;
+  }
+  const header = `
+    <div class="class-row class-row-head">
+      <span>Classe de cette année</span>
+      <span>Niveau l'an prochain</span>
+      <span>Enseignant(e) l'an prochain</span>
+      <span>Nom de la nouvelle classe</span>
+      <span>Faire passer les élèves</span>
+    </div>`;
+  closeYearClasses.innerHTML = header + filtered.map((c) => {
     const teacher = c.teacher_name || '';
-    const level = c.level || '';
+    const next = nextLevel(c.level);
+    const proposedName = next.leaving ? '' : (c.level ? autoClassName(next.level, teacher) : c.name);
     return `
-      <div class="class-row" data-class-id="${c.id}">
-        <input name="current_year" value="${escapeHtml(yearLabel)}" placeholder="Annee" disabled />
-        <input name="new_teacher" value="${escapeHtml(teacher)}" placeholder="Nouveau professeur" />
-        <input name="new_level" value="${escapeHtml(level)}" placeholder="Nouveau niveau" />
-        <input name="new_name" value="${escapeHtml(c.name)}" placeholder="Nouvelle classe" />
-        <label class="checkbox"><input type="checkbox" name="carry" checked /> Passer eleves</label>
+      <div class="class-row${next.leaving ? ' class-row--leaving' : ''}" data-class-id="${escapeHtml(c.id)}">
+        <span class="class-row-current"><strong>${escapeHtml(c.name)}</strong>${c.level ? ` · ${escapeHtml(c.level)}` : ''}</span>
+        <input name="new_level" value="${escapeHtml(next.level)}" placeholder="Ex : CE2" aria-label="Niveau l'an prochain" />
+        <input name="new_teacher" value="${escapeHtml(teacher)}" placeholder="Ex : Mme Dupont" aria-label="Enseignant(e) l'an prochain" />
+        <input name="new_name" value="${escapeHtml(proposedName)}" placeholder="Nom de la classe" aria-label="Nom de la nouvelle classe" />
+        <label class="checkbox"><input type="checkbox" name="carry" ${next.leaving ? '' : 'checked'} /> ${next.leaving ? 'Quittent l\'école' : 'Oui'}</label>
       </div>
     `;
   }).join('');
 }
+
+// Le nom propose suit le niveau et l'enseignant, tant que l'utilisateur ne l'a pas modifie lui-meme.
+closeYearClasses.addEventListener('input', (event) => {
+  const row = event.target.closest('.class-row');
+  if (!row) return;
+  const nameInput = row.querySelector('input[name="new_name"]');
+  if (event.target === nameInput) {
+    nameInput.dataset.touched = '1';
+    return;
+  }
+  if (nameInput.dataset.touched) return;
+  nameInput.value = autoClassName(row.querySelector('input[name="new_level"]').value, row.querySelector('input[name="new_teacher"]').value);
+});
 
 closeYearCurrent.addEventListener('change', renderCloseYearClasses);
 
@@ -1047,11 +1135,11 @@ closeYearForm.addEventListener('submit', async (event) => {
   const currentYearId = closeYearCurrent.value;
   const nextYearName = closeYearNext.value.trim();
   if (!currentYearId || !nextYearName) {
-    setStatus('Choisissez l\'annee a cloturer et la nouvelle annee.', true);
+    setStatus('Choisissez l\'année à clôturer et la nouvelle année.', true);
     return;
   }
 
-  const rows = Array.from(closeYearClasses.querySelectorAll('.class-row'));
+  const rows = Array.from(closeYearClasses.querySelectorAll('.class-row[data-class-id]'));
   const classes = rows.map((row) => {
     const classId = Number(row.dataset.classId);
     const newTeacher = row.querySelector('input[name="new_teacher"]').value.trim();
@@ -1062,10 +1150,11 @@ closeYearForm.addEventListener('submit', async (event) => {
       class_id: classId,
       new_teacher_name: newTeacher,
       new_level: newLevel,
-      new_name: newName,
-      carry_students: carry
+      new_name: newName || autoClassName(newLevel, newTeacher) || 'Classe',
+      carry_students: carry,
+      leaving: !carry && !newName && !newLevel
     };
-  });
+  }).filter((c) => !c.leaving);
 
   const submitBtn = closeYearForm.querySelector('button[type="submit"]');
   if (submitBtn && submitBtn.disabled) return;
@@ -1076,7 +1165,7 @@ closeYearForm.addEventListener('submit', async (event) => {
       next_year_name: nextYearName,
       classes
     });
-    setStatus('Annee cloturee et nouvelle annee creee.');
+    setStatus('Année clôturée et nouvelle année créée.');
     closeYearModal.classList.add('hidden');
     closeYearForm.reset();
     refreshAll();
@@ -1094,9 +1183,9 @@ function setStatus(rawMessage, isError) {
   const inProgress = /\.\.\.$/.test(String(message || '').trim());
   if (isError) {
     playErrorSound();
-    showToast('err', 'Un probleme est survenu', message);
+    showToast('err', 'Un problème est survenu', message);
   } else if (!inProgress) {
-    showToast('ok', 'Termine', message);
+    showToast('ok', 'Terminé', message);
   }
 }
 
@@ -1142,146 +1231,6 @@ function normalizeIsbnInput(value) {
   return String(value || '').replace(/[^0-9Xx]/g, '').toUpperCase();
 }
 
-function resetLoanSubmitState() {
-  loanStudent.required = false;
-  loanSubmitBtn.textContent = "Valider l'emprunt";
-}
-
-function defaultDueDateValue() {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().slice(0, 10);
-}
-
-function resetLoanInputs(keepClass) {
-  const classValue = loanClass.value;
-  loanForm.reset();
-  if (keepClass) {
-    loanClass.value = classValue;
-    renderLoanStudents();
-  }
-  if (loanDueDate) {
-    loanDueDate.value = defaultDueDateValue();
-  }
-  updateLoanStudentBadge();
-  updateSelectedBook(null);
-}
-
-function renderLoanClasses() {
-  const current = loanClass.value;
-  const options = cachedClasses.map((c) => {
-    const year = c.school_year ? `${c.school_year} - ` : '';
-    const teacher = c.teacher_name ? ` (${c.teacher_name})` : '';
-    return `<option value="${c.id}">${escapeHtml(`${year}${c.name}${teacher}`)}</option>`;
-  }).join('');
-  loanClass.innerHTML = '<option value="">Toutes les classes</option>' + options;
-  if (current) loanClass.value = current;
-  updateLoanClassBadge();
-}
-
-function renderLoanStudents() {
-  const classId = loanClass.value;
-  const list = classId
-    ? cachedStudents.filter((s) => String(s.class_id || '') === classId)
-    : cachedStudents;
-  const current = loanStudent.value;
-  loanStudent.innerHTML = '<option value="">Choisir un eleve</option>' + list.map((s) => {
-    const fullName = `${s.last_name || ''} ${s.first_name || ''}`.trim();
-    const meta = `${s.class_name || ''}${s.school_year ? ' - ' + s.school_year : ''}`.trim();
-    return `<option value="${s.id}">${escapeHtml(`${fullName}${meta ? ' (' + meta + ')' : ''}`)}</option>`;
-  }).join('');
-  if (current && list.some((s) => String(s.id) === String(current))) {
-    loanStudent.value = current;
-  }
-  updateLoanStudentBadge();
-}
-
-function updateLoanClassBadge() {
-  const classId = loanClass.value;
-  if (!classId) {
-    loanClassBadge.textContent = 'Classe: Toutes';
-    return;
-  }
-  const selected = cachedClasses.find((c) => String(c.id) === String(classId));
-  if (!selected) {
-    loanClassBadge.textContent = 'Classe: -';
-    return;
-  }
-  const year = selected.school_year ? `${selected.school_year} - ` : '';
-  const teacher = selected.teacher_name ? ` (${selected.teacher_name})` : '';
-  loanClassBadge.textContent = `Classe: ${year}${selected.name}${teacher}`;
-}
-
-function updateLoanStudentBadge() {
-  const studentId = loanStudent.value;
-  if (!studentId) {
-    loanStudentBadge.textContent = 'Eleve: Aucun';
-    return;
-  }
-  const selected = cachedStudents.find((s) => String(s.id) === String(studentId));
-  if (!selected) {
-    loanStudentBadge.textContent = 'Eleve: -';
-    return;
-  }
-  const fullName = `${selected.last_name || ''} ${selected.first_name || ''}`.trim();
-  const classLabel = selected.class_name ? ` (${selected.class_name})` : '';
-  loanStudentBadge.textContent = `Eleve: ${fullName}${classLabel}`;
-}
-
-function selectBookByIsbn(rawIsbn) {
-  const clean = normalizeIsbnInput(rawIsbn);
-  if (!clean || (clean.length !== 10 && clean.length !== 13)) return;
-  const match = cachedBooks.find((b) => normalizeIsbnInput(b.isbn) === clean);
-  if (!match) {
-    setStatus('Livre introuvable pour cet ISBN.', true);
-    return;
-  }
-  loanBook.value = String(match.id);
-  updateSelectedBook(match);
-  attemptAutoReturn(match, clean);
-}
-
-let lastReturnAttempt = { isbn: '', at: 0 };
-async function attemptAutoReturn(book, cleanIsbn) {
-  if (!book) return;
-  if (loanStudent.value) return;
-  const classId = loanClass.value ? Number(loanClass.value) : null;
-  if (!classId) {
-    setStatus('Selectionnez une classe pour le retour.', true);
-    return;
-  }
-  const now = Date.now();
-  if (lastReturnAttempt.isbn === cleanIsbn && now - lastReturnAttempt.at < 1200) {
-    return;
-  }
-  lastReturnAttempt = { isbn: cleanIsbn, at: now };
-  try {
-    await window.api.loansReturnByBook({
-      book_id: Number(book.id),
-      student_id: null
-    });
-    setStatus('Retour enregistre.', false);
-    playSuccessSound();
-    resetLoanInputs(true);
-    resetLoanSubmitState();
-    refreshAll();
-  } catch (err) {
-    setStatus(err.message, true);
-  }
-}
-
-function updateSelectedBook(book) {
-  if (!book) {
-    loanSelectedBook.textContent = 'Aucun livre selectionne';
-    loanSelectedBook.classList.remove('loan-selected--ok');
-    loanSelectedBook.classList.add('loan-selected--none');
-    return;
-  }
-  const available = Math.max(0, Number(book.copies || 0) - Number(book.on_loan || 0));
-  const title = book.title || 'Livre sans titre';
-  loanSelectedBook.textContent = `${title} - ${available} dispo`;
-}
-
 async function openBookPreview(book) {
   if (!book) return;
   const available = Math.max(0, Number(book.copies || 0) - Number(book.on_loan || 0));
@@ -1292,9 +1241,9 @@ async function openBookPreview(book) {
 
   const metaLines = [
     book.author ? `Auteur: ${book.author}` : 'Auteur: -',
-    book.year ? `Annee: ${book.year}` : 'Annee: -',
+    book.year ? `Année: ${book.year}` : 'Année: -',
     book.isbn ? `ISBN: ${book.isbn}` : 'ISBN: -',
-    book.numero ? `Numero: ${book.numero}` : 'Numero: -',
+    book.numero ? `Numéro: ${book.numero}` : 'Numéro: -',
     book.location ? `Emplacement: ${book.location}` : 'Emplacement: -'
   ];
   bookPreviewMeta.innerHTML = metaLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('');
@@ -1303,23 +1252,31 @@ async function openBookPreview(book) {
   bookPreviewCoverPlaceholder.style.display = 'block';
   bookPreviewCoverLoader.classList.add('hidden');
 
-  const isbn = book.isbn || '';
-  if (isbn.trim()) {
-    bookPreviewCoverLoader.classList.remove('hidden');
-    try {
-      const data = await window.api.booksLookup(isbn);
-      if (data && data.coverUrl) {
-        bookPreviewImg.src = data.coverUrl;
-        bookPreviewImg.classList.add('show');
-        bookPreviewCoverPlaceholder.style.display = 'none';
-      }
-    } catch (e) {
-      // ignore lookup errors
-    }
-    bookPreviewCoverLoader.classList.add('hidden');
-  }
-
+  // La fiche s'ouvre tout de suite ; la couverture memorisee s'affiche sans internet.
   bookPreviewModal.classList.remove('hidden');
+  const showCover = (url) => {
+    bookPreviewImg.src = url;
+    bookPreviewImg.classList.add('show');
+    bookPreviewCoverPlaceholder.style.display = 'none';
+  };
+  if (book.cover_url) {
+    showCover(book.cover_url);
+    return;
+  }
+  const isbn = book.isbn || '';
+  if (!isbn.trim()) return;
+  bookPreviewCoverLoader.classList.remove('hidden');
+  try {
+    const data = await window.api.booksLookup(isbn);
+    if (data && data.coverUrl) {
+      showCover(data.coverUrl);
+      book.cover_url = data.coverUrl;
+      window.api.booksSetCover(book.id, data.coverUrl).catch(() => {});
+    }
+  } catch (e) {
+    // pas de couverture : la fiche reste utilisable
+  }
+  bookPreviewCoverLoader.classList.add('hidden');
 }
 
 function setBookFormMode(mode, book) {
@@ -1388,6 +1345,8 @@ function sortBooks(books) {
 
 async function refreshAll() {
   await Promise.all([refreshBooks(), refreshYears(), refreshClasses(), refreshStudents(), refreshLoans()]);
+  loanDeskRefresh();
+  updateLibraryStatus();
 }
 
 function updateHomeDashboard() {
@@ -1403,8 +1362,8 @@ function updateHomeDashboard() {
   if (statOverdueCard) statOverdueCard.classList.toggle('hidden', overdueCount === 0);
   if (tileOverdueText) {
     tileOverdueText.textContent = overdueCount === 0
-      ? 'Aucun pret en retard actuellement.'
-      : `${overdueCount} livre${overdueCount > 1 ? 's' : ''} a reclamer.`;
+      ? 'Aucun prêt en retard actuellement.'
+      : `${overdueCount} livre${overdueCount > 1 ? 's' : ''} à réclamer.`;
   }
 }
 
@@ -1423,9 +1382,8 @@ if (homeTileAddStudent) homeTileAddStudent.addEventListener('click', () => {
 });
 if (homeTileCatalogue) homeTileCatalogue.addEventListener('click', () => setActiveTab('books'));
 if (homeTileOverdue) homeTileOverdue.addEventListener('click', () => {
-  showOverdueOnly = true;
   setActiveTab('loans');
-  refreshLoans();
+  showLoanFilter('overdue');
 });
 const statsModal = document.getElementById('statsModal');
 const statsClose = document.getElementById('statsClose');
@@ -1450,7 +1408,7 @@ async function openStatsModal() {
       </div>
       <div class="stat-card">
         <div class="icon-badge"><svg class="icon"><use href="#i-book"/></svg></div>
-        <div><div class="n">${escapeHtml(stats.booksNeverBorrowed)}</div><div class="l">livres jamais empruntes</div></div>
+        <div><div class="n">${escapeHtml(stats.booksNeverBorrowed)}</div><div class="l">livres jamais empruntés</div></div>
       </div>
     `;
     statsTopBooks.innerHTML = stats.topBooks.map((b) => `
@@ -1470,6 +1428,47 @@ async function openStatsModal() {
 if (homeTileStats) homeTileStats.addEventListener('click', openStatsModal);
 if (statsClose) statsClose.addEventListener('click', () => statsModal.classList.add('hidden'));
 
+const DELETE_ACTIONS = {
+  year: {
+    call: (id) => window.api.yearsDelete(id),
+    title: 'Supprimer cette année scolaire ?',
+    message: (name) => `L'année « ${name} » sera supprimée. Une année qui contient encore des classes ne peut pas être supprimée.`,
+    done: 'Année scolaire supprimée.'
+  },
+  class: {
+    call: (id) => window.api.classesDelete(id),
+    title: 'Supprimer cette classe ?',
+    message: (name) => `La classe « ${name} » sera supprimée. Une classe qui contient encore des élèves ne peut pas être supprimée.`,
+    done: 'Classe supprimée.'
+  },
+  student: {
+    call: (id) => window.api.studentsDelete(id),
+    title: 'Supprimer cet élève ?',
+    message: (name) => `${name} sera supprimé(e) de la bibliothèque, avec l'historique de ses prêts. Un élève qui a encore un livre ne peut pas être supprimé.`,
+    done: 'Élève supprimé.'
+  }
+};
+
+document.addEventListener('click', async (event) => {
+  const btn = event.target.closest('.delete-entity');
+  if (!btn) return;
+  const action = DELETE_ACTIONS[btn.dataset.kind];
+  if (!action) return;
+  const ok = await confirmDialog({
+    title: action.title,
+    message: action.message(btn.dataset.name || ''),
+    confirmLabel: 'Oui, supprimer'
+  });
+  if (!ok) return;
+  try {
+    await action.call(Number(btn.dataset.id));
+    setStatus(action.done);
+    await refreshAll();
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
 async function refreshYears() {
   const years = await window.api.yearsList();
   const filterYear = document.getElementById('filterYear');
@@ -1481,7 +1480,7 @@ async function refreshYears() {
     if (currentYear) filterYear.value = currentYear;
   }
 
-  classYearSelect.innerHTML = '<option value="">Choisir une annee scolaire</option>'
+  classYearSelect.innerHTML = '<option value="">Choisir une année scolaire</option>'
     + years.map((y) => `<option value="${y.id}">${escapeHtml(y.name)}</option>`).join('');
 
   const yearsEmptyState = document.getElementById('yearsEmptyState');
@@ -1500,7 +1499,7 @@ async function refreshYears() {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${escapeHtml(y.name)}</td>
-      <td><button data-id="${y.id}" class="edit-year">Modifier</button></td>
+      <td><button data-id="${y.id}" class="edit-year">Modifier</button> <button type="button" class="ghost delete-entity" data-kind="year" data-id="${y.id}" data-name="${escapeHtml(y.name)}">Supprimer</button></td>
     `;
     yearsTable.appendChild(row);
   });
@@ -1521,7 +1520,6 @@ async function refreshYears() {
 async function refreshClasses() {
   const classes = await window.api.classesList();
   cachedClasses = classes;
-  renderLoanClasses();
   const filterYear = document.getElementById('filterYear');
   const filterClass = document.getElementById('filterClass');
   const classesTable = document.getElementById('classesTable');
@@ -1535,11 +1533,8 @@ async function refreshClasses() {
     if (currentClass) filterClass.value = currentClass;
   }
 
-  studentClassSelect.innerHTML = '<option value="">Choisir un professeur</option>'
-    + filteredClasses.map((c) => {
-      const label = c.teacher_name || c.name || 'Professeur';
-      return `<option value="${c.id}">${escapeHtml(label)}</option>`;
-    }).join('');
+  studentClassSelect.innerHTML = '<option value="">Choisir la classe</option>'
+    + filteredClasses.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(classLabel(c))}</option>`).join('');
 
   const classesEmptyState = document.getElementById('classesEmptyState');
   if (classesEmptyState) {
@@ -1560,7 +1555,7 @@ async function refreshClasses() {
       <td>${escapeHtml(c.teacher_name || '-')}</td>
       <td>${escapeHtml(c.level || '-')}</td>
       <td>${escapeHtml(c.name)}</td>
-      <td><button data-id="${c.id}" class="edit-class">Modifier</button></td>
+      <td><button data-id="${c.id}" class="edit-class">Modifier</button> <button type="button" class="ghost delete-entity" data-kind="class" data-id="${c.id}" data-name="${escapeHtml(classLabel(c))}">Supprimer</button></td>
     `;
     classesTable.appendChild(row);
   });
@@ -1581,22 +1576,29 @@ async function refreshClasses() {
 }
 
 function filterBooksBySearch(books) {
-  const term = (bookSearchInput ? bookSearchInput.value : '').trim().toLowerCase();
+  const term = normalizeSearch(bookSearchInput ? bookSearchInput.value : '');
   if (!term) return books;
-  return books.filter((b) => {
-    return String(b.title || '').toLowerCase().includes(term)
-      || String(b.author || '').toLowerCase().includes(term)
-      || String(b.isbn || '').toLowerCase().includes(term);
-  });
+  return books.filter((b) => normalizeSearch(`${b.title || ''} ${b.author || ''} ${b.isbn || ''} ${b.numero || ''} ${b.location || ''}`).includes(term));
 }
 
+/*
+ * Catalogue : les livres sont charges une fois, puis la recherche et le tri se
+ * font sur la liste en memoire (rapide meme avec des milliers de livres).
+ * Au-dela de BOOKS_DISPLAY_LIMIT resultats, on invite a affiner la recherche.
+ */
+const BOOKS_DISPLAY_LIMIT = 300;
+const booksTableBody = document.getElementById('booksTable');
+
 async function refreshBooks() {
-  const books = await window.api.booksList();
-  cachedBooks = books;
-  const table = document.getElementById('booksTable');
+  cachedBooks = await window.api.booksList();
+  renderBooksTable();
+}
+
+function renderBooksTable() {
+  const books = cachedBooks;
   const tableEl = document.getElementById('booksTableEl');
   const emptyState = document.getElementById('booksEmptyState');
-  table.innerHTML = '';
+  const limitNote = document.getElementById('booksLimitNote');
   updateBookSortIndicators();
   const sortedBooks = sortBooks(filterBooksBySearch([...books]));
   if (tableEl && emptyState) {
@@ -1606,103 +1608,98 @@ async function refreshBooks() {
       tableEl.classList.add('hidden');
       emptyState.classList.remove('hidden');
       emptyState.querySelector('h3').textContent = 'Aucun livre pour l\'instant';
-      emptyState.querySelector('p').textContent = 'Cette bibliotheque n\'a pas encore de livre enregistre. Ajoutez le premier pour commencer.';
+      emptyState.querySelector('p').textContent = 'Cette bibliothèque n\'a pas encore de livre enregistré. Ajoutez le premier pour commencer.';
       if (emptyBtn) emptyBtn.classList.remove('hidden');
     } else if (sortedBooks.length === 0 && isSearching) {
       tableEl.classList.add('hidden');
       emptyState.classList.remove('hidden');
-      emptyState.querySelector('h3').textContent = 'Aucun resultat';
-      emptyState.querySelector('p').textContent = 'Aucun livre ne correspond a votre recherche.';
+      emptyState.querySelector('h3').textContent = 'Aucun résultat';
+      emptyState.querySelector('p').textContent = 'Aucun livre ne correspond à votre recherche.';
       if (emptyBtn) emptyBtn.classList.add('hidden');
     } else {
       tableEl.classList.remove('hidden');
       emptyState.classList.add('hidden');
     }
   }
-  sortedBooks.forEach((b) => {
+  if (limitNote) {
+    limitNote.classList.toggle('hidden', sortedBooks.length <= BOOKS_DISPLAY_LIMIT);
+    limitNote.textContent = `Les ${BOOKS_DISPLAY_LIMIT} premiers livres sont affichés sur ${sortedBooks.length}. Utilisez la recherche pour trouver les autres.`;
+  }
+  booksTableBody.innerHTML = sortedBooks.slice(0, BOOKS_DISPLAY_LIMIT).map((b) => {
     const available = Math.max(0, Number(b.copies || 0) - Number(b.on_loan || 0));
-      const row = document.createElement('tr');
-      row.classList.add('book-row');
-      const availabilityClass = available > 0 ? 'status-pill status-pill--ok' : 'status-pill status-pill--out';
-      const availabilityLabel = available > 0 ? `${available} dispo` : '0 dispo';
-      row.innerHTML = `
-        <td>${escapeHtml(b.title)}</td>
-        <td>${escapeHtml(b.author || '-')}</td>
-        <td>${escapeHtml(b.year || '-')}</td>
-        <td>${escapeHtml(b.isbn || '-')}</td>
-        <td>${escapeHtml(b.copies)}</td>
-        <td><span class="${availabilityClass}">${availabilityLabel}</span></td>
-        <td><span class="status-pill">${escapeHtml(b.on_loan)}</span></td>
-        <td>${escapeHtml(b.numero || '-')}</td>
-        <td>
-          <button type="button" data-id="${b.id}" class="edit-book">Modifier</button>
-          <button type="button" data-id="${b.id}" class="delete-book" style="background: #ff6b6b; margin-left: 4px;">Supprimer</button>
-        </td>
-      `;
-      row.addEventListener('click', (event) => {
-        if (event.target.closest('button')) return;
-        openBookPreview(b);
-      });
-    table.appendChild(row);
-  });
-
-  document.querySelectorAll('.edit-book').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const book = books.find((b) => b.id === Number(btn.dataset.id));
-      if (!book) return;
-      setActiveTab('books');
-      setBookFormMode('edit', book);
-    });
-  });
-
-  document.querySelectorAll('.delete-book').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const book = books.find((b) => b.id === Number(btn.dataset.id));
-      if (!book) return;
-      const ok = await confirmDialog({
-        title: 'Supprimer ce livre ?',
-        message: `"${book.title}" sera definitivement supprime du catalogue. Cette action ne peut pas etre annulee.`,
-        confirmLabel: 'Oui, supprimer'
-      });
-      if (!ok) return;
-      try {
-        setStatus('Suppression en cours...', false);
-        await window.api.booksDelete(book.id);
-        setBookFormMode('add');
-        ensureBookFormEditable();
-        lastLookupIsbn = '';
-        setStatus(`Livre "${book.title}" supprime.`, false);
-        await refreshBooks();
-        focusBookIsbnInput();
-      } catch (err) {
-        setStatus('Erreur: ' + err.message, true);
-      }
-    });
-  });
-
-  loanBook.innerHTML = '<option value="">Choisir un livre</option>' + books.map((b) => {
-    const available = Math.max(0, Number(b.copies || 0) - Number(b.on_loan || 0));
-    return `<option value="${b.id}">${escapeHtml(`${b.title} (${available} dispo)`)}</option>`;
+    const availabilityClass = available > 0 ? 'status-pill status-pill--ok' : 'status-pill status-pill--out';
+    return `<tr class="book-row" data-book-id="${escapeHtml(b.id)}">
+      <td>${escapeHtml(b.title)}</td>
+      <td>${escapeHtml(b.author || '-')}</td>
+      <td>${escapeHtml(b.year || '-')}</td>
+      <td>${escapeHtml(b.isbn || '-')}</td>
+      <td>${escapeHtml(b.copies)}</td>
+      <td><span class="${availabilityClass}">${available} dispo</span></td>
+      <td><span class="status-pill">${escapeHtml(b.on_loan)}</span></td>
+      <td>${escapeHtml(b.numero || '-')}</td>
+      <td>
+        <button type="button" class="edit-book">Modifier</button>
+        <button type="button" class="ghost delete-book">Supprimer</button>
+      </td>
+    </tr>`;
   }).join('');
-  const selected = books.find((b) => String(b.id) === String(loanBook.value));
-  updateSelectedBook(selected || null);
 }
 
+booksTableBody.addEventListener('click', async (event) => {
+  const row = event.target.closest('tr[data-book-id]');
+  if (!row) return;
+  const book = cachedBooks.find((b) => String(b.id) === row.dataset.bookId);
+  if (!book) return;
+  const btn = event.target.closest('button');
+  if (!btn) {
+    openBookPreview(book);
+    return;
+  }
+  if (btn.classList.contains('edit-book')) {
+    setActiveTab('books');
+    setBookFormMode('edit', book);
+    return;
+  }
+  if (!btn.classList.contains('delete-book')) return;
+  const ok = await confirmDialog({
+    title: 'Supprimer ce livre ?',
+    message: `"${book.title}" sera définitivement supprimé du catalogue, avec l'historique de ses prêts. Cette action ne peut pas être annulée.`,
+    confirmLabel: 'Oui, supprimer'
+  });
+  if (!ok) return;
+  try {
+    setStatus('Suppression en cours...', false);
+    await window.api.booksDelete(book.id);
+    setBookFormMode('add');
+    ensureBookFormEditable();
+    lastLookupIsbn = '';
+    setStatus(`Livre "${book.title}" supprimé.`, false);
+    await refreshAll();
+    focusBookIsbnInput();
+  } catch (err) {
+    setStatus('Erreur: ' + err.message, true);
+  }
+});
+
 async function refreshStudents() {
-  const students = await window.api.studentsList();
-  cachedStudents = students;
+  cachedStudents = await window.api.studentsList();
+  renderStudents();
+}
+
+function renderStudents() {
+  const students = cachedStudents;
   const table = document.getElementById('studentsTable');
   const filterYear = document.getElementById('filterYear');
   const filterClass = document.getElementById('filterClass');
 
   const currentYear = filterYear ? filterYear.value : '';
   const currentClass = filterClass ? filterClass.value : '';
-  const searchTerm = (studentSearchInput ? studentSearchInput.value : '').trim().toLowerCase();
+  const searchTerm = normalizeSearch(studentSearchInput ? studentSearchInput.value : '');
   const filtered = students.filter((s) => {
     if (currentYear && String(s.school_year_id || '') !== currentYear) return false;
     if (currentClass && String(s.class_id || '') !== currentClass) return false;
     if (searchTerm) {
-      const haystack = `${s.last_name || ''} ${s.first_name || ''}`.toLowerCase();
+      const haystack = normalizeSearch(`${s.last_name || ''} ${s.first_name || ''} ${s.first_name || ''} ${s.last_name || ''}`);
       if (!haystack.includes(searchTerm)) return false;
     }
     return true;
@@ -1713,13 +1710,13 @@ async function refreshStudents() {
     if (students.length === 0) {
       table.parentElement.classList.add('hidden');
       studentsEmptyState.classList.remove('hidden');
-      studentsEmptyState.querySelector('h3').textContent = 'Aucun eleve pour l\'instant';
-      studentsEmptyState.querySelector('p').textContent = 'Ajoutez le premier eleve de cette bibliotheque.';
+      studentsEmptyState.querySelector('h3').textContent = 'Aucun élève pour l\'instant';
+      studentsEmptyState.querySelector('p').textContent = 'Ajoutez le premier élève de cette bibliothèque.';
     } else if (filtered.length === 0) {
       table.parentElement.classList.add('hidden');
       studentsEmptyState.classList.remove('hidden');
-      studentsEmptyState.querySelector('h3').textContent = 'Aucun resultat';
-      studentsEmptyState.querySelector('p').textContent = 'Aucun eleve ne correspond a ces filtres.';
+      studentsEmptyState.querySelector('h3').textContent = 'Aucun résultat';
+      studentsEmptyState.querySelector('p').textContent = 'Aucun élève ne correspond à ces filtres.';
     } else {
       table.parentElement.classList.remove('hidden');
       studentsEmptyState.classList.add('hidden');
@@ -1738,6 +1735,7 @@ async function refreshStudents() {
       <td>
         <button data-id="${s.id}" class="history-student">Historique</button>
         <button data-id="${s.id}" class="edit-student">Modifier</button>
+        <button type="button" class="ghost delete-entity" data-kind="student" data-id="${s.id}" data-name="${escapeHtml(`${s.first_name || ''} ${s.last_name || ''}`.trim())}">Supprimer</button>
       </td>
     `;
     table.appendChild(row);
@@ -1779,7 +1777,6 @@ async function refreshStudents() {
     });
   });
 
-  renderLoanStudents();
 }
 
 const filterYearSelect = document.getElementById('filterYear');
@@ -1796,11 +1793,19 @@ if (filterClassSelect) {
 
 const bookSearchInput = document.getElementById('bookSearch');
 if (bookSearchInput) {
-  bookSearchInput.addEventListener('input', refreshBooks);
+  let bookSearchTimer = null;
+  bookSearchInput.addEventListener('input', () => {
+    clearTimeout(bookSearchTimer);
+    bookSearchTimer = setTimeout(renderBooksTable, 150);
+  });
 }
 const studentSearchInput = document.getElementById('studentSearch');
 if (studentSearchInput) {
-  studentSearchInput.addEventListener('input', refreshStudents);
+  let studentSearchTimer = null;
+  studentSearchInput.addEventListener('input', () => {
+    clearTimeout(studentSearchTimer);
+    studentSearchTimer = setTimeout(renderStudents, 150);
+  });
 }
 
 bookSortButtons.forEach((btn) => {
@@ -1813,143 +1818,9 @@ bookSortButtons.forEach((btn) => {
       currentBookSort.key = key;
       currentBookSort.dir = 'asc';
     }
-    refreshBooks();
+    renderBooksTable();
   });
 });
-
-loanClass.addEventListener('change', () => {
-  loanStudent.value = '';
-  renderLoanStudents();
-  updateLoanClassBadge();
-  updateLoanStudentBadge();
-  if (loanIsbn) loanIsbn.focus();
-});
-loanStudent.addEventListener('change', updateLoanStudentBadge);
-loanStudent.addEventListener('change', () => {
-  const selected = cachedStudents.find((s) => String(s.id) === String(loanStudent.value));
-  if (selected && selected.class_id && String(loanClass.value) !== String(selected.class_id)) {
-    loanClass.value = String(selected.class_id);
-    renderLoanStudents();
-    loanStudent.value = String(selected.id);
-  }
-  if (loanIsbn) loanIsbn.focus();
-});
-loanBook.addEventListener('change', () => {
-  const book = cachedBooks.find((b) => String(b.id) === String(loanBook.value));
-  if (book && !loanIsbn.value) loanIsbn.value = book.isbn || '';
-  updateSelectedBook(book || null);
-});
-loanIsbn.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    selectBookByIsbn(loanIsbn.value);
-    if (loanStudent.value) {
-      loanForm.requestSubmit();
-    }
-  }
-});
-loanIsbn.addEventListener('input', () => {
-  const clean = normalizeIsbnInput(loanIsbn.value);
-  if (clean.length === 10 || clean.length === 13) {
-    selectBookByIsbn(clean);
-  }
-});
-const overdueFilterBtnEl = document.getElementById('overdueFilterBtn');
-if (overdueFilterBtnEl) {
-  overdueFilterBtnEl.addEventListener('click', () => {
-    showOverdueOnly = !showOverdueOnly;
-    refreshLoans();
-  });
-}
-
-let cachedLoans = [];
-let showOverdueOnly = false;
-
-function isLoanOverdue(l) {
-  return !!(l.due_date && !l.return_date && new Date(l.due_date) < new Date());
-}
-
-async function refreshLoans() {
-  const loans = await window.api.loansList();
-  cachedLoans = loans;
-  updateHomeDashboard();
-
-  const overdueCount = loans.filter(isLoanOverdue).length;
-  const overdueFilterBtn = document.getElementById('overdueFilterBtn');
-  const overdueFilterLabel = document.getElementById('overdueFilterLabel');
-  if (overdueFilterBtn) {
-    overdueFilterBtn.classList.toggle('hidden', overdueCount === 0 && !showOverdueOnly);
-  }
-  if (overdueFilterLabel) {
-    overdueFilterLabel.textContent = showOverdueOnly
-      ? 'Voir tous les emprunts'
-      : `Voir uniquement les retards (${overdueCount})`;
-  }
-
-  const visibleLoans = showOverdueOnly ? loans.filter(isLoanOverdue) : loans;
-
-  const table = document.getElementById('loansTable');
-  const loansEmptyState = document.getElementById('loansEmptyState');
-  if (loansEmptyState) {
-    if (visibleLoans.length === 0) {
-      table.parentElement.classList.add('hidden');
-      loansEmptyState.classList.remove('hidden');
-      document.getElementById('loansEmptyTitle').textContent = showOverdueOnly
-        ? 'Aucun pret en retard'
-        : 'Aucun emprunt en cours';
-      document.getElementById('loansEmptyText').textContent = showOverdueOnly
-        ? 'Tous les livres empruntes sont rendus a temps.'
-        : 'Scannez un livre ci-dessus pour enregistrer un premier emprunt.';
-    } else {
-      table.parentElement.classList.remove('hidden');
-      loansEmptyState.classList.add('hidden');
-    }
-  }
-
-  table.innerHTML = '';
-  const today = new Date();
-  visibleLoans.forEach((l) => {
-    const row = document.createElement('tr');
-    const isOverdue = isLoanOverdue(l);
-    const dueCell = l.due_date
-      ? `${escapeHtml(new Date(l.due_date).toLocaleDateString('fr-FR'))}${isOverdue ? ' <span class="status-pill status-pill--out">en retard</span>' : ''}`
-      : '-';
-    row.innerHTML = `
-      <td>${escapeHtml(l.book_title)}</td>
-      <td>${escapeHtml(l.student_name)}</td>
-      <td>${escapeHtml(new Date(l.loan_date).toLocaleDateString('fr-FR'))}</td>
-      <td>${dueCell}</td>
-      <td>${l.return_date ? escapeHtml(new Date(l.return_date).toLocaleDateString('fr-FR')) : '-'}</td>
-      <td>
-        <button data-id="${l.id}" class="return-loan">Retour</button>
-        <button data-id="${l.id}" class="delete-loan">Supprimer</button>
-      </td>
-    `;
-    table.appendChild(row);
-  });
-
-  document.querySelectorAll('.return-loan').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      await window.api.loansReturn(Number(btn.dataset.id));
-      setStatus('Emprunt retourne.');
-      refreshAll();
-    });
-  });
-
-  document.querySelectorAll('.delete-loan').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const ok = await confirmDialog({
-        title: 'Supprimer cet emprunt ?',
-        message: 'Cette ligne d\'emprunt sera definitivement supprimee. Cette action ne peut pas etre annulee.',
-        confirmLabel: 'Oui, supprimer'
-      });
-      if (!ok) return;
-      await window.api.loansDelete(Number(btn.dataset.id));
-      setStatus('Emprunt supprime.');
-      refreshAll();
-    });
-  });
-}
 
 const bookForm = document.getElementById('bookForm');
 bookForm.addEventListener('click', ensureBookFormEditable, true);
@@ -1970,17 +1841,21 @@ bookForm.addEventListener('submit', async (event) => {
   });
   payload.year = payload.year ? Number(payload.year) : null;
   payload.copies = payload.copies ? Number(payload.copies) : 1;
-  if (payload.copies < 1 || payload.copies > 200) {
-    setStatus('Le nombre d\'exemplaires doit etre entre 1 et 200.', true);
+  if (payload.copies < 1 || payload.copies > 999) {
+    setStatus('Le nombre d\'exemplaires doit être entre 1 et 999.', true);
     return;
+  }
+  // Couverture trouvee par la recherche ISBN : memorisee avec le livre.
+  if (lastLookupCover && normalizeIsbnInput(payload.isbn) === lastLookupCover.isbn) {
+    payload.cover_url = lastLookupCover.url;
   }
   if (bookForm.dataset.mode !== 'edit') {
     const similar = findSimilarBook(payload.title, payload.author);
     if (similar) {
       const proceed = await confirmDialog({
-        title: 'Ce livre existe peut-etre deja',
-        message: `"${similar.title}"${similar.author ? ' - ' + similar.author : ''} est deja dans le catalogue avec ${similar.copies || 1} exemplaire(s). Pour ajouter des exemplaires, fermez cette fenetre et modifiez plutot la fiche existante. Continuer creera une fiche separee (disponibilite et historique comptes a part).`,
-        confirmLabel: 'Creer une fiche separee'
+        title: 'Ce livre existe peut-être déjà',
+        message: `"${similar.title}"${similar.author ? ' - ' + similar.author : ''} est déjà dans le catalogue avec ${similar.copies || 1} exemplaire(s). Pour ajouter des exemplaires, fermez cette fenêtre et modifiez plutôt la fiche existante. Continuer créera une fiche séparée (disponibilité et historique comptés à part).`,
+        confirmLabel: 'Créer une fiche séparée'
       });
       if (!proceed) return;
     }
@@ -1989,11 +1864,11 @@ bookForm.addEventListener('submit', async (event) => {
     if (bookForm.dataset.mode === 'edit') {
       payload.id = Number(bookForm.dataset.id);
       await window.api.booksUpdate(payload);
-      setStatus('Livre modifie.');
+      setStatus('Livre modifié.');
       setBookFormMode('add');
     } else {
       await window.api.booksAdd(payload);
-      setStatus('Livre ajoute.');
+      setStatus('Livre ajouté.');
       bookForm.reset();
     }
     await refreshAll();
@@ -2051,9 +1926,9 @@ studentForm.addEventListener('submit', async (event) => {
     const similar = findSimilarStudent(payload.last_name, payload.first_name, payload.class_id);
     if (similar) {
       const proceed = await confirmDialog({
-        title: 'Cet eleve existe peut-etre deja',
-        message: `${similar.last_name || ''} ${similar.first_name || ''} est deja inscrit dans cette classe. Ajouter quand meme un doublon ?`,
-        confirmLabel: 'Ajouter quand meme'
+        title: 'Cet élève existe peut-être déjà',
+        message: `${similar.last_name || ''} ${similar.first_name || ''} est déjà inscrit dans cette classe. Ajouter quand même un doublon ?`,
+        confirmLabel: 'Ajouter quand même'
       });
       if (!proceed) return;
     }
@@ -2062,12 +1937,12 @@ studentForm.addEventListener('submit', async (event) => {
     if (studentForm.dataset.mode === 'edit') {
       payload.id = Number(studentForm.dataset.id);
       await window.api.studentsUpdate(payload);
-      setStatus('Eleve modifie.');
+      setStatus('Élève modifié.');
       delete studentForm.dataset.mode;
       delete studentForm.dataset.id;
     } else {
       await window.api.studentsAdd(payload);
-      setStatus('Eleve ajoute.');
+      setStatus('Élève ajouté.');
     }
     studentForm.reset();
     refreshAll();
@@ -2084,12 +1959,12 @@ schoolYearForm.addEventListener('submit', async (event) => {
     if (schoolYearForm.dataset.mode === 'edit') {
       payload.id = Number(schoolYearForm.dataset.id);
       await window.api.yearsUpdate(payload);
-      setStatus('Annee modifiee.');
+      setStatus('Année modifiée.');
       delete schoolYearForm.dataset.mode;
       delete schoolYearForm.dataset.id;
     } else {
       await window.api.yearsAdd(payload);
-      setStatus('Annee scolaire ajoutee.');
+      setStatus('Année scolaire ajoutée.');
     }
     schoolYearForm.reset();
     refreshAll();
@@ -2108,12 +1983,12 @@ classForm.addEventListener('submit', async (event) => {
     if (classForm.dataset.mode === 'edit') {
       payload.id = Number(classForm.dataset.id);
       await window.api.classesUpdate(payload);
-      setStatus('Classe modifiee.');
+      setStatus('Classe modifiée.');
       delete classForm.dataset.mode;
       delete classForm.dataset.id;
     } else {
       await window.api.classesAdd(payload);
-      setStatus('Classe ajoutee.');
+      setStatus('Classe ajoutée.');
     }
     classForm.reset();
     refreshAll();
@@ -2122,62 +1997,23 @@ classForm.addEventListener('submit', async (event) => {
   }
 });
 
-loanForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const formData = new FormData(loanForm);
-  const payload = Object.fromEntries(formData.entries());
-  try {
-    const bookId = payload.book_id ? Number(payload.book_id) : null;
-    const studentId = payload.student_id ? Number(payload.student_id) : null;
-    const classId = loanClass.value ? Number(loanClass.value) : null;
-    if (!bookId) {
-      setStatus('Selectionnez un livre.', true);
-      return;
-    }
-    if (studentId) {
-      await window.api.loansAdd({
-        book_id: bookId,
-        student_id: studentId,
-        due_date: payload.due_date || null
-      });
-      setStatus('Emprunt enregistre (date du jour).');
-      playSuccessSound();
-    } else {
-      if (!classId) {
-        setStatus('Selectionnez une classe pour le retour.', true);
-        return;
-      }
-      await window.api.loansReturnByBook({
-        book_id: bookId,
-        student_id: null
-      });
-      setStatus('Retour enregistre.');
-      playSuccessSound();
-    }
-    resetLoanInputs(true);
-    resetLoanSubmitState();
-    await refreshAll();
-    if (loanIsbn) {
-      loanIsbn.focus();
-    }
-  } catch (err) {
-    setStatus(err.message, true);
-  }
-});
-
 // Export/import handled by dedicated modals.
 
-appUnlocked.then(() => {
+// On attend aussi que tous les scripts de la page soient charges (loan-desk.js, welcome.js) :
+// sinon le premier chargement peut partir avant eux.
+const pageScriptsReady = new Promise((resolve) => {
+  if (document.readyState !== 'loading') resolve();
+  else document.addEventListener('DOMContentLoaded', resolve, { once: true });
+});
+
+Promise.all([appUnlocked, pageScriptsReady]).then(() => {
   refreshAll()
     .then(() => updateLibraryStatus())
+    .then(() => maybeShowWelcome())
     .catch((err) => setStatus(err.message, true));
   refreshBackupReminder();
 });
 showAddForm('school_year');
-resetLoanSubmitState();
-if (loanDueDate) {
-  loanDueDate.value = defaultDueDateValue();
-}
 
 const lookupIsbnBtn = document.getElementById('lookupIsbnBtn');
 const isbnInput = document.querySelector('#bookForm input[name="isbn"]');
@@ -2189,6 +2025,7 @@ const coverPlaceholder = document.getElementById('coverPlaceholder');
 const coverLoader = document.getElementById('coverLoader');
 const coverEmpty = document.getElementById('coverEmpty');
 let lastLookupIsbn = '';
+let lastLookupCover = null;
 let lookupTimer = null;
 
 async function runIsbnLookup() {
@@ -2208,7 +2045,7 @@ async function runIsbnLookup() {
   coverEmpty.classList.add('hidden');
   const data = await window.api.booksLookup(clean);
   if (!data) {
-    setStatus('Aucune information trouvee pour cet ISBN.', true);
+    setStatus('Aucune information trouvée pour cet ISBN.', true);
     coverLoader.classList.add('hidden');
     coverImg.classList.remove('show');
     coverPlaceholder.style.display = 'block';
@@ -2218,6 +2055,7 @@ async function runIsbnLookup() {
   if (!titleInput.value && data.title) titleInput.value = data.title;
   if (!authorInput.value && data.author) authorInput.value = data.author;
   if (!yearInput.value && data.year) yearInput.value = data.year;
+  lastLookupCover = data.coverUrl ? { isbn: clean, url: data.coverUrl } : null;
   if (data.coverUrl) {
     coverImg.src = data.coverUrl;
     coverImg.classList.add('show');
@@ -2229,7 +2067,7 @@ async function runIsbnLookup() {
     coverEmpty.classList.remove('hidden');
   }
   coverLoader.classList.add('hidden');
-  setStatus('Infos trouvees pour l\'ISBN.');
+  setStatus('Infos trouvées pour l\'ISBN.');
 }
 
 lookupIsbnBtn.addEventListener('click', runIsbnLookup);

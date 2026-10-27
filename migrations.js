@@ -94,6 +94,10 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS idx_classes_school_year_id ON classes(school_year_id);
       CREATE INDEX IF NOT EXISTS idx_student_history_student_id ON student_history(student_id);
     `);
+  },
+  // v4 : adresse de la couverture memorisee, pour la revoir sans nouvelle recherche internet
+  (database) => {
+    try { database.exec('ALTER TABLE books ADD COLUMN cover_url TEXT'); } catch (e) { /* colonne deja presente */ }
   }
 ];
 
