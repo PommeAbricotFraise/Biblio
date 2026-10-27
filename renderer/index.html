@@ -30,6 +30,7 @@
       <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><rect x="8" y="4" width="7" height="5"/><rect x="8" y="13" width="8" height="7" rx="1"/></symbol>
     </defs>
     </svg>
 
@@ -68,9 +69,9 @@
         </label>
         <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Bases</button>
         <button id="openAddTab"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button>
+        <button id="openBackupSave" type="button" class="save-btn" title="Enregistrer une copie de toutes vos données (sur une clé USB par exemple)"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder</button>
         <button id="openExport"><svg class="icon"><use href="#i-download"/></svg>Exporter</button>
         <button id="openImport"><svg class="icon"><use href="#i-upload"/></svg>Importer</button>
-        <input id="importQuickInput" type="file" accept=".json,.xlsx,.xls,.sqlite3,.db" class="file-hidden" />
       </div>
     </header>
 
@@ -87,6 +88,15 @@
         <div class="hello">
           <h2>Bonjour <span class="wave">👋</span></h2>
           <p>Que voulez-vous faire aujourd'hui ?</p>
+        </div>
+
+        <div class="backup-reminder hidden" id="backupReminder" role="status">
+          <div class="backup-reminder-icon"><svg class="icon"><use href="#i-save"/></svg></div>
+          <div class="backup-reminder-text">
+            <strong id="backupReminderTitle">Pensez à sauvegarder vos données</strong>
+            <span id="backupReminderText">Branchez une clé USB, cliquez sur le bouton, puis choisissez la clé.</span>
+          </div>
+          <button type="button" class="btn" id="backupReminderBtn"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder maintenant</button>
         </div>
 
         <div class="stat-strip">
@@ -385,6 +395,13 @@
             <button id="authSetBtn" type="button">Definir un mot de passe</button>
             <button id="authRemoveBtn" type="button">Retirer le mot de passe</button>
           </div>
+          <h3 class="manage-section-title">Sauvegardes</h3>
+          <p class="card-sub">Une sauvegarde automatique est faite chaque jour sur cet ordinateur. Pour vous protéger d'une panne, faites aussi régulièrement une sauvegarde sur une clé USB.</p>
+          <div class="confirm-actions" style="justify-content: flex-start;">
+            <button id="backupSaveBtn" type="button"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder sur une clé USB</button>
+            <button id="backupRestoreBtn" type="button"><svg class="icon"><use href="#i-upload"/></svg>Restaurer une sauvegarde</button>
+            <button id="backupAutoRestoreBtn" type="button"><svg class="icon"><use href="#i-clock"/></svg>Revenir à un jour précédent</button>
+          </div>
         </div>
       </section>
 
@@ -484,40 +501,6 @@
             <div class="export-footer">
               <button type="submit"><svg class="icon"><use href="#i-download"/></svg>Exporter</button>
             </div>
-          </form>
-        </div>
-      </section>
-
-      <section id="importModal" class="modal hidden">
-        <div class="modal-content modal-wide">
-          <div class="panel-header">
-            <h2><svg class="icon"><use href="#i-upload"/></svg>Importer</h2>
-            <button id="importClose" class="ghost"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
-          </div>
-          <form id="importForm">
-            <div class="form-grid">
-              <label>
-                Format
-                <select id="importFormat">
-                  <option value="json">JSON</option>
-                  <option value="xlsx">Excel (XLSX)</option>
-                </select>
-              </label>
-              <label>
-                Fichier
-                <input id="importFile" type="file" accept=".json,.xlsx" />
-              </label>
-            </div>
-            <div class="panel subpanel">
-              <h3>Jeux de donnees</h3>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="books" checked /> Livres</label>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="students" checked /> Eleves</label>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="classes" checked /> Classes</label>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="school_years" checked /> Annees scolaires</label>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="loans" checked /> Emprunts</label>
-              <label class="checkbox"><input type="checkbox" name="importDataset" value="student_history" checked /> Historique eleves</label>
-            </div>
-            <button type="submit"><svg class="icon"><use href="#i-upload"/></svg>Importer</button>
           </form>
         </div>
       </section>

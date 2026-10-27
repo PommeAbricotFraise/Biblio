@@ -6,6 +6,30 @@ const initSqlJs = require('sql.js');
 const XLSX = require('xlsx');
 const { runMigrations } = require('./migrations');
 const { getStatistics: computeStatistics } = require('./stats');
+const {
+  TABLES,
+  withTransaction,
+  isLibraryDatabase,
+  dumpDatabase,
+  countData,
+  countDatabase,
+  isDatabaseEmpty,
+  describeCounts,
+  replaceAllData,
+  sheetsToData,
+  mergeData,
+  buildBackupFile,
+  parseBackupFile,
+  AUTO_BACKUP_KIND
+} = require('./data-transfer');
+const {
+  localDateStamp,
+  localTimeStamp,
+  dailyBackupName,
+  safetyBackupName,
+  isAutoBackupName,
+  selectBackupsToDelete
+} = require('./backup-policy');
 
 let mainWindow;
 let db;
@@ -74,14 +98,24 @@ function loadConfig() {
   }
 }
 
-function saveConfig() {
-  const existing = loadConfig();
-  const payload = { ...existing, library: currentLibrary, libraries: libraryCatalog };
-  fs.writeFileSync(getConfigPath(), JSON.stringify(payload, null, 2));
+function writeConfig(cfg) {
+  const configPath = getConfigPath();
+  const tmpPath = `${configPath}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(cfg, null, 2));
+  fs.renameSync(tmpPath, configPath);
 }
 
-function enableForeignKeys() {
-  db.run('PRAGMA foreign_keys = ON;');
+function saveConfig() {
+  const existing = loadConfig();
+  writeConfig({ ...existing, library: currentLibrary, libraries: libraryCatalog });
+}
+
+function updateConfig(patch) {
+  writeConfig({ ...loadConfig(), ...patch });
+}
+
+function enableForeignKeys(database = db) {
+  database.run('PRAGMA foreign_keys = ON;');
 }
 
 /*
@@ -110,10 +144,13 @@ function encryptBuffer(buffer) {
   return Buffer.concat([ENC_MAGIC, encrypted]);
 }
 
+function hasEncryptionHeader(buffer) {
+  return buffer.length >= ENC_MAGIC.length && buffer.subarray(0, ENC_MAGIC.length).equals(ENC_MAGIC);
+}
+
 function decryptBuffer(buffer) {
   const source = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-  const isEncrypted = source.length >= ENC_MAGIC.length && source.subarray(0, ENC_MAGIC.length).equals(ENC_MAGIC);
-  if (!isEncrypted) return source;
+  if (!hasEncryptionHeader(source)) return source;
   if (!isEncryptionAvailable()) {
     throw new Error('Le chiffrement n\'est pas disponible sur ce poste pour dechiffrer ce fichier.');
   }
@@ -141,22 +178,65 @@ function getDbPath(libraryKey = currentLibrary) {
   return path.join(dataDir, fileName);
 }
 
-function migrateLegacyDb() {
-  const dataDir = app.getPath('userData');
-  ensureDir(dataDir);
-  const legacyPath = path.join(dataDir, 'biblio.sqlite3');
-  const primaryPath = path.join(dataDir, DEFAULT_LIBRARIES[0].file);
-  if (!fs.existsSync(legacyPath)) return;
-  const legacySize = fs.statSync(legacyPath).size;
-  if (!fs.existsSync(primaryPath)) {
-    fs.copyFileSync(legacyPath, primaryPath);
-    return;
+function getBackupsDir(libraryKey = currentLibrary) {
+  const dir = path.join(app.getPath('userData'), 'backups', slugifyLibraryKey(libraryKey));
+  ensureDir(dir);
+  return dir;
+}
+
+/* Met un fichier de cote (renomme, jamais supprime) et retourne son nouveau chemin. */
+function setAsideFile(filePath, label) {
+  if (!fs.existsSync(filePath)) return null;
+  const target = `${filePath}.${label}-${localTimeStamp()}`;
+  fs.renameSync(filePath, target);
+  return target;
+}
+
+function legacyDbHasData(legacyPath) {
+  let legacyDb = null;
+  try {
+    legacyDb = new SQL.Database(new Uint8Array(fs.readFileSync(legacyPath)));
+    return !isDatabaseEmpty(legacyDb);
+  } catch (e) {
+    return false;
+  } finally {
+    if (legacyDb) legacyDb.close();
   }
-  const primarySize = fs.statSync(primaryPath).size;
-  if (primarySize === 0 || primarySize < legacySize) {
-    const backupPath = path.join(dataDir, 'biblio-primaire.backup.sqlite3');
-    fs.copyFileSync(primaryPath, backupPath);
-    fs.copyFileSync(legacyPath, primaryPath);
+}
+
+function databaseFileIsEmpty(filePath) {
+  let database = null;
+  try {
+    database = new SQL.Database(new Uint8Array(readEncryptedFile(filePath)));
+    return isDatabaseEmpty(database);
+  } catch (e) {
+    // illisible : on n'y touche surtout pas
+    return false;
+  } finally {
+    if (database) database.close();
+  }
+}
+
+/*
+ * Reprise, une seule fois, de l'ancienne base unique "biblio.sqlite3" des
+ * toutes premieres versions. Le fichier est ensuite renomme pour que la
+ * reprise ne se refasse jamais (avant, elle pouvait ecraser la base actuelle
+ * a chaque demarrage).
+ */
+function migrateLegacyDb() {
+  const legacyPath = path.join(app.getPath('userData'), 'biblio.sqlite3');
+  if (!fs.existsSync(legacyPath)) return;
+  try {
+    const primaryPath = getDbPath(DEFAULT_LIBRARIES[0].key);
+    if (!fs.existsSync(primaryPath)) {
+      fs.copyFileSync(legacyPath, primaryPath);
+    } else if (databaseFileIsEmpty(primaryPath) && legacyDbHasData(legacyPath)) {
+      setAsideFile(primaryPath, 'avant-reprise');
+      fs.copyFileSync(legacyPath, primaryPath);
+    }
+    fs.renameSync(legacyPath, `${legacyPath}.repris-${localTimeStamp()}`);
+  } catch (e) {
+    logStartupError(e);
   }
 }
 
@@ -165,15 +245,21 @@ async function initDb() {
     locateFile: (file) => path.join(__dirname, 'node_modules', 'sql.js', 'dist', file)
   });
 
-  migrateLegacyDb();
   const cfg = loadConfig();
   libraryCatalog = buildLibraryCatalog(cfg.libraries);
-  const savedLibrary = cfg.library;
-  if (savedLibrary && getLibraryByKey(savedLibrary)) {
-    currentLibrary = savedLibrary;
+  if (cfg.library && getLibraryByKey(cfg.library)) {
+    currentLibrary = cfg.library;
   }
+  migrateLegacyDb();
 
-  openDbForLibrary(currentLibrary);
+  try {
+    openDbForLibrary(currentLibrary);
+  } catch (err) {
+    const rescued = await rescueLibrary(currentLibrary, err, { atStartup: true });
+    if (!rescued) return false;
+    openDbForLibrary(currentLibrary);
+  }
+  return true;
 }
 
 function ensureSchema() {
@@ -182,30 +268,78 @@ function ensureSchema() {
   hasStudentNameColumn = columnExists('students', 'name');
 }
 
+const UNREADABLE_ELSEWHERE_MESSAGE = 'Ce fichier a été protégé sur un autre ordinateur ou une autre session Windows : il ne peut pas être lu ici. Utilisez plutôt une sauvegarde faite avec le bouton « Sauvegarder ».';
+
+/* Charge et verifie la base d'une bibliotheque, sans rien changer a l'etat courant. */
+function loadLibraryDatabase(libraryKey) {
+  const dbPath = getDbPath(libraryKey);
+  if (!fs.existsSync(dbPath)) {
+    const fresh = new SQL.Database();
+    runMigrations(fresh);
+    enableForeignKeys(fresh);
+    return fresh;
+  }
+  let bytes;
+  try {
+    bytes = readEncryptedFile(dbPath);
+  } catch (err) {
+    throw new Error(UNREADABLE_ELSEWHERE_MESSAGE);
+  }
+  const database = new SQL.Database(new Uint8Array(bytes));
+  try {
+    runMigrations(database);
+    enableForeignKeys(database);
+    return database;
+  } catch (err) {
+    database.close();
+    throw new Error(`Le fichier de cette bibliothèque est abîmé (${err.message}).`);
+  }
+}
+
+/* Pour une restauration : si le fichier existant est illisible, il est mis de cote. */
+function openLibraryForRestore(libraryKey) {
+  try {
+    return loadLibraryDatabase(libraryKey);
+  } catch (err) {
+    setAsideFile(getDbPath(libraryKey), 'endommage');
+    return loadLibraryDatabase(libraryKey);
+  }
+}
+
 function openDbForLibrary(libraryKey) {
   if (!getLibraryByKey(libraryKey)) {
     throw new Error(`Bibliotheque inconnue: ${libraryKey}`);
   }
-  const nextLibrary = libraryKey;
-  currentLibrary = nextLibrary;
-  const dbPath = getDbPath(currentLibrary);
-  currentDbPath = dbPath;
-  if (fs.existsSync(dbPath)) {
-    const fileBuffer = readEncryptedFile(dbPath);
-    db = new SQL.Database(new Uint8Array(fileBuffer));
-  } else {
-    db = new SQL.Database();
-  }
-  enableForeignKeys();
-
+  // On ne bascule qu'une fois la nouvelle base lue et verifiee : en cas
+  // d'echec, la bibliotheque en cours reste ouverte et intacte.
+  const nextDb = loadLibraryDatabase(libraryKey);
+  flushAutoBackup();
+  if (db && db !== nextDb) db.close();
+  db = nextDb;
+  currentLibrary = libraryKey;
+  currentDbPath = getDbPath(libraryKey);
   ensureSchema();
   saveDb();
   saveConfig();
-  restoreFromLegacyOrBackup();
+  ensureTodayBackup();
 }
 
 function listLibraries() {
   return libraryCatalog.map((item) => ({ key: item.key, name: item.name }));
+}
+
+function libraryDisplayName(key) {
+  const entry = getLibraryByKey(key);
+  return entry ? entry.name : key;
+}
+
+function ensureLibraryEntry(key, name) {
+  const cleanKey = slugifyLibraryKey(key || name);
+  const existing = getLibraryByKey(cleanKey);
+  if (existing) return existing;
+  const entry = { key: cleanKey, name: String(name || '').trim() || cleanKey, file: `biblio-${cleanKey}.sqlite3` };
+  libraryCatalog.push(entry);
+  return entry;
 }
 
 function createLibrary(name) {
@@ -270,62 +404,56 @@ function deleteLibrary(libraryKey) {
     saveConfig();
   }
 
+  // Le fichier n'est pas efface : il est range dans un dossier a part, au cas ou.
   try {
     if (fs.existsSync(dbPath)) {
-      fs.unlinkSync(dbPath);
+      const trashDir = path.join(app.getPath('userData'), 'bibliotheques-supprimees');
+      ensureDir(trashDir);
+      fs.renameSync(dbPath, path.join(trashDir, `${path.basename(dbPath, '.sqlite3')}-${localTimeStamp()}.sqlite3`));
     }
   } catch (e) {
-    // ignore file delete errors
+    logStartupError(e);
   }
 
   return { active: currentLibrary, libraries: listLibraries() };
 }
 
-function importDatabaseBuffer(buffer) {
-  const dbPath = currentDbPath || getDbPath(currentLibrary);
-  if (fs.existsSync(dbPath)) {
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = dbPath.replace('.sqlite3', `.backup-${stamp}.sqlite3`);
-    fs.copyFileSync(dbPath, backupPath);
+/* Lit un fichier .sqlite3/.db, le dechiffre si besoin et verifie que c'est bien une bibliotheque. */
+function loadDatabaseFromBytes(bytes) {
+  let plain;
+  try {
+    plain = decryptBuffer(Buffer.from(bytes));
+  } catch (err) {
+    throw new Error(UNREADABLE_ELSEWHERE_MESSAGE);
   }
-  writeEncryptedFile(dbPath, Buffer.from(buffer));
-  const fileBuffer = readEncryptedFile(dbPath);
-  db = new SQL.Database(new Uint8Array(fileBuffer));
-  enableForeignKeys();
-  ensureSchema();
-  migrateStudentsToClasses();
-  hasStudentNameColumn = columnExists('students', 'name');
-  saveDb();
-  backupJson();
+  let candidate = null;
+  try {
+    candidate = new SQL.Database(new Uint8Array(plain));
+    if (!isLibraryDatabase(candidate)) throw new Error('table des livres absente');
+    runMigrations(candidate);
+    enableForeignKeys(candidate);
+    return candidate;
+  } catch (err) {
+    if (candidate) candidate.close();
+    throw new Error('Ce fichier n\'est pas une bibliothèque Biblio-rians valide.');
+  }
 }
 
-function importFileAtPath(filePath) {
-  const ext = path.extname(filePath || '').toLowerCase();
-  const datasets = ['books', 'students', 'classes', 'school_years', 'loans', 'student_history'];
-  if (ext === '.sqlite3' || ext === '.db') {
-    const buffer = fs.readFileSync(filePath);
-    importDatabaseBuffer(buffer);
-    return { type: 'db' };
+/* Lit un fichier JSON (sauvegarde chiffree par l'application, ou fichier en clair). */
+function readBackupJson(filePath) {
+  const raw = fs.readFileSync(filePath);
+  const trusted = hasEncryptionHeader(raw);
+  let content;
+  try {
+    content = decryptBuffer(raw).toString('utf-8');
+  } catch (err) {
+    throw new Error(UNREADABLE_ELSEWHERE_MESSAGE);
   }
-  if (ext === '.json') {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw);
-    importMerge(data, datasets);
-    return { type: 'json' };
+  try {
+    return { obj: JSON.parse(content.replace(/^﻿/, '')), trusted };
+  } catch (err) {
+    throw new Error('Ce fichier n\'est pas un fichier de données valide (il est peut-être abîmé).');
   }
-  if (ext === '.xlsx' || ext === '.xls') {
-    const buffer = fs.readFileSync(filePath);
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const parsed = {};
-    workbook.SheetNames.forEach((name) => {
-      const key = normalizeSheetName(name);
-      const sheet = workbook.Sheets[name];
-      parsed[key] = XLSX.utils.sheet_to_json(sheet, { defval: null });
-    });
-    importMerge(parsed, datasets);
-    return { type: 'xlsx' };
-  }
-  throw new Error('Format non supporte.');
 }
 
 function columnExists(table, column) {
@@ -335,6 +463,9 @@ function columnExists(table, column) {
 
 function saveDb() {
   const data = db.export();
+  // sql.js ferme puis rouvre la connexion pendant export() : les reglages de
+  // connexion sont perdus et les cles etrangeres doivent etre reactivees.
+  enableForeignKeys();
   const dbPath = currentDbPath || getDbPath(currentLibrary);
   writeEncryptedFile(dbPath, Buffer.from(data));
 }
@@ -342,83 +473,6 @@ function saveDb() {
 function countRows(table) {
   const row = get(`SELECT COUNT(*) AS c FROM ${table}`);
   return row ? Number(row.c || 0) : 0;
-}
-
-function isCurrentDbEmpty() {
-  return countRows('books') === 0
-    && countRows('students') === 0
-    && countRows('classes') === 0
-    && countRows('school_years') === 0
-    && countRows('loans') === 0;
-}
-
-function legacyDbHasData(legacyPath) {
-  try {
-    const buf = fs.readFileSync(legacyPath);
-    const legacyDb = new SQL.Database(new Uint8Array(buf));
-    const stmt = legacyDb.prepare('SELECT COUNT(*) AS c FROM books');
-    let count = 0;
-    if (stmt.step()) {
-      count = Number(stmt.getAsObject().c || 0);
-    }
-    stmt.free();
-    return count > 0;
-  } catch (e) {
-    return false;
-  }
-}
-
-function getLatestBackupPath() {
-  const backupsDir = path.join(app.getPath('userData'), 'backups');
-  if (!fs.existsSync(backupsDir)) return null;
-  const entries = fs.readdirSync(backupsDir)
-    .filter((name) => name.endsWith('.json'))
-    .map((name) => ({
-      name,
-      fullPath: path.join(backupsDir, name),
-      mtime: fs.statSync(path.join(backupsDir, name)).mtimeMs
-    }))
-    .sort((a, b) => b.mtime - a.mtime);
-  return entries[0] ? entries[0].fullPath : null;
-}
-
-function restoreFromLegacyOrBackup() {
-  if (currentLibrary !== 'primaire') return;
-  if (!isCurrentDbEmpty()) return;
-  const dataDir = app.getPath('userData');
-  const legacyPath = path.join(dataDir, 'biblio.sqlite3');
-  const primaryPath = getDbPath('primaire');
-  if (fs.existsSync(legacyPath) && legacyDbHasData(legacyPath)) {
-    const backupPath = path.join(dataDir, 'biblio-primaire.backup.sqlite3');
-    if (fs.existsSync(primaryPath)) fs.copyFileSync(primaryPath, backupPath);
-    fs.copyFileSync(legacyPath, primaryPath);
-    const buf = readEncryptedFile(primaryPath);
-    db = new SQL.Database(new Uint8Array(buf));
-    enableForeignKeys();
-    ensureSchema();
-    migrateStudentsToClasses();
-    hasStudentNameColumn = columnExists('students', 'name');
-    saveDb();
-    return;
-  }
-
-  const latestBackup = getLatestBackupPath();
-  if (latestBackup) {
-    try {
-      const raw = readEncryptedFile(latestBackup).toString('utf-8');
-      const data = JSON.parse(raw);
-      importMerge(data, [
-        'books',
-        'students',
-        'classes',
-        'school_years',
-        'loans',
-        'student_history'
-      ]);
-    } catch (e) {
-      // ignore backup restore errors
-    }
-  }
 }
 
 function getDbStats() {
@@ -450,7 +504,6 @@ function get(sql, params = []) {
   const rows = all(sql, params);
   return rows[0];
 }
-
 
 function run(sql, params = []) {
   const stmt = db.prepare(sql);
@@ -528,46 +581,480 @@ function migrateStudentsToClasses() {
   });
 }
 
-function backupJson() {
-  const backupsDir = path.join(app.getPath('userData'), 'backups');
-  ensureDir(backupsDir);
-
+/*
+ * Sauvegardes automatiques (voir backup-policy.js) : une par jour et par
+ * bibliotheque, plus une copie de securite avant chaque operation risquee.
+ * Elles restent chiffrees et sur ce poste ; la sauvegarde "cle USB"
+ * (saveBackupToFile) est celle qui protege d'une panne de l'ordinateur.
+ */
+function writeAutoBackup(fileName, database, libraryKey) {
+  const dir = getBackupsDir(libraryKey);
   const payload = {
     meta: {
-      generated_at: new Date().toISOString(),
-      version: '0.1.0'
+      kind: AUTO_BACKUP_KIND,
+      library: libraryKey,
+      library_name: libraryDisplayName(libraryKey),
+      app_version: app.getVersion(),
+      generated_at: new Date().toISOString()
     },
-    books: all('SELECT * FROM books'),
-    school_years: all('SELECT * FROM school_years'),
-    classes: all('SELECT * FROM classes'),
-    students: all('SELECT * FROM students'),
-    student_history: all('SELECT * FROM student_history'),
-    loans: all('SELECT * FROM loans')
+    ...dumpDatabase(database)
   };
-
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const outPath = path.join(backupsDir, `backup-${stamp}.json`);
-  fs.writeFileSync(outPath, encryptBuffer(Buffer.from(JSON.stringify(payload, null, 2), 'utf-8')));
-  pruneOldBackups(backupsDir);
+  writeEncryptedFile(path.join(dir, fileName), Buffer.from(JSON.stringify(payload), 'utf-8'));
+  pruneAutoBackups(dir);
 }
 
-const BACKUP_RETENTION_COUNT = 30;
+function writeDailyBackup() {
+  if (!db) return;
+  writeAutoBackup(dailyBackupName(), db, currentLibrary);
+}
 
-function pruneOldBackups(backupsDir, keep = BACKUP_RETENTION_COUNT) {
+function writeSafetyBackup(reason, database = db, libraryKey = currentLibrary) {
+  if (!database || isDatabaseEmpty(database)) return;
+  writeAutoBackup(safetyBackupName(reason), database, libraryKey);
+}
+
+function ensureTodayBackup() {
   try {
-    const entries = fs.readdirSync(backupsDir)
-      .filter((name) => name.endsWith('.json'))
-      .map((name) => {
-        const fullPath = path.join(backupsDir, name);
-        return { fullPath, mtime: fs.statSync(fullPath).mtimeMs };
-      })
-      .sort((a, b) => b.mtime - a.mtime);
-    entries.slice(keep).forEach((entry) => {
-      try { fs.unlinkSync(entry.fullPath); } catch (e) { /* ignore prune errors */ }
+    if (!fs.existsSync(path.join(getBackupsDir(), dailyBackupName()))) {
+      writeDailyBackup();
+    }
+  } catch (e) {
+    logStartupError(e);
+  }
+}
+
+function pruneAutoBackups(dir) {
+  try {
+    selectBackupsToDelete(fs.readdirSync(dir)).forEach((name) => {
+      try { fs.unlinkSync(path.join(dir, name)); } catch (e) { /* ignore prune errors */ }
     });
   } catch (e) {
     // ignore prune errors
   }
+}
+
+const AUTO_BACKUP_DELAY_MS = 2 * 60 * 1000;
+let autoBackupTimer = null;
+let autoBackupPending = false;
+
+/* Apres une modification : la sauvegarde du jour est mise a jour au plus tard 2 minutes apres. */
+function markDirty() {
+  autoBackupPending = true;
+  if (!autoBackupTimer) {
+    autoBackupTimer = setTimeout(flushAutoBackup, AUTO_BACKUP_DELAY_MS);
+  }
+}
+
+function flushAutoBackup() {
+  if (autoBackupTimer) {
+    clearTimeout(autoBackupTimer);
+    autoBackupTimer = null;
+  }
+  if (!autoBackupPending || !db) return;
+  autoBackupPending = false;
+  try {
+    writeDailyBackup();
+  } catch (e) {
+    logStartupError(e);
+  }
+}
+
+function persist() {
+  saveDb();
+  markDirty();
+}
+
+function listAutoBackups(libraryKey) {
+  const entries = [];
+  const collect = (dir, accept) => {
+    if (!fs.existsSync(dir)) return;
+    fs.readdirSync(dir).filter(accept).forEach((name) => {
+      const fullPath = path.join(dir, name);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) entries.push({ path: fullPath, mtime: stat.mtimeMs });
+      } catch (e) { /* fichier disparu */ }
+    });
+  };
+  collect(getBackupsDir(libraryKey), isAutoBackupName);
+  if (libraryKey === DEFAULT_LIBRARIES[0].key) {
+    // anciennes sauvegardes (versions <= 0.1.5), rangees a la racine du dossier
+    collect(path.join(app.getPath('userData'), 'backups'), (name) => name.startsWith('backup-') && name.endsWith('.json'));
+  }
+  return entries.sort((a, b) => b.mtime - a.mtime);
+}
+
+function findLatestReadableAutoBackup(libraryKey) {
+  const candidates = listAutoBackups(libraryKey).slice(0, 40);
+  for (let i = 0; i < candidates.length; i += 1) {
+    try {
+      const { obj } = readBackupJson(candidates[i].path);
+      const parsed = parseBackupFile(obj, { trusted: true });
+      if (parsed && parsed.kind === 'single') {
+        return { path: candidates[i].path, date: parsed.generatedAt || candidates[i].mtime, data: parsed.data };
+      }
+    } catch (e) {
+      // sauvegarde illisible : on essaie la suivante
+    }
+  }
+  return null;
+}
+
+function formatDate(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatDateTime(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${formatDate(d)} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+async function showMessage(parent, options) {
+  return parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options);
+}
+
+async function askConfirmation({ title, message, detail, confirmLabel, type = 'warning', parent = mainWindow }) {
+  const { response } = await showMessage(parent, {
+    type,
+    title,
+    message,
+    detail,
+    buttons: ['Annuler', confirmLabel || 'Continuer'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true
+  });
+  return response === 1;
+}
+
+/* Remplace le contenu des bibliotheques listees, avec copie de securite avant. */
+function restoreLibraries(libraries) {
+  flushAutoBackup();
+  let currentRestored = false;
+  libraries.forEach((lib) => {
+    const entry = ensureLibraryEntry(lib.key, lib.name);
+    const isCurrent = !!db && entry.key === currentLibrary;
+    const target = isCurrent ? db : openLibraryForRestore(entry.key);
+    try {
+      writeSafetyBackup('avant-restauration', target, entry.key);
+      replaceAllData(target, lib.data);
+      if (isCurrent) {
+        saveDb();
+        currentRestored = true;
+      } else {
+        writeEncryptedFile(getDbPath(entry.key), Buffer.from(target.export()));
+      }
+    } finally {
+      if (!isCurrent) target.close();
+    }
+  });
+  saveConfig();
+  if (currentRestored) {
+    hasStudentNameColumn = columnExists('students', 'name');
+    markDirty();
+  }
+}
+
+function restorePlan(libraries, generatedAt) {
+  const when = generatedAt ? ` du ${formatDateTime(generatedAt)}` : '';
+  const list = libraries.map((lib) => `• ${lib.name || lib.key} : ${describeCounts(countData(lib.data))}`).join('\n');
+  return {
+    title: 'Restaurer une sauvegarde',
+    message: libraries.length > 1
+      ? `Restaurer ces ${libraries.length} bibliothèques à partir de la sauvegarde${when} ?`
+      : `Restaurer « ${libraries[0].name || libraries[0].key} » à partir de la sauvegarde${when} ?`,
+    detail: `Contenu de la sauvegarde :\n${list}\n\nLe contenu actuel sera remplacé par celui de la sauvegarde. Une copie de sécurité du contenu actuel est conservée automatiquement.`,
+    confirmLabel: 'Restaurer',
+    apply: () => {
+      restoreLibraries(libraries);
+      return libraries.length > 1
+        ? `Sauvegarde restaurée (${libraries.length} bibliothèques).`
+        : `Bibliothèque « ${libraries[0].name || libraries[0].key} » restaurée.`;
+    }
+  };
+}
+
+function describeMergeReport(report) {
+  const parts = [];
+  const add = (n, one, many) => { if (n) parts.push(`${n} ${n > 1 ? many : one}`); };
+  add(report.books, 'livre', 'livres');
+  add(report.students, 'élève', 'élèves');
+  add(report.classes, 'classe', 'classes');
+  add(report.school_years, 'année scolaire', 'années scolaires');
+  add(report.loans, 'prêt', 'prêts');
+  add(report.student_history, 'ligne d\'historique', 'lignes d\'historique');
+  let message = parts.length
+    ? `Import terminé. Ajouté : ${parts.join(', ')}.`
+    : 'Import terminé : tout était déjà présent, rien à ajouter.';
+  if (report.skipped) {
+    message += ` ${report.skipped} ligne(s) ignorée(s) (livre ou élève introuvable, ou ligne incomplète).`;
+  }
+  return message;
+}
+
+function mergePlan(data) {
+  const counts = countData(data);
+  const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  if (!total) {
+    throw new Error('Ce fichier ne contient aucune donnée reconnue (livres, élèves, classes...).');
+  }
+  const name = libraryDisplayName(currentLibrary);
+  return {
+    type: 'question',
+    title: 'Importer des données',
+    message: `Ajouter le contenu de ce fichier à la bibliothèque « ${name} » ?`,
+    detail: `Le fichier contient : ${describeCounts(counts)}.\n\nRien n'est supprimé : seuls les éléments absents sont ajoutés, sans doublon. Une copie de sécurité est faite avant.`,
+    confirmLabel: 'Importer',
+    apply: () => {
+      writeSafetyBackup('avant-import');
+      const report = mergeData(db, data, TABLES);
+      persist();
+      return describeMergeReport(report);
+    }
+  };
+}
+
+function replaceDatabasePlan(candidate) {
+  const name = libraryDisplayName(currentLibrary);
+  return {
+    title: 'Remplacer la bibliothèque',
+    message: `Remplacer tout le contenu de « ${name} » par celui de ce fichier ?`,
+    detail: `Contenu actuel : ${describeCounts(countDatabase(db))}.\nContenu du fichier : ${describeCounts(countDatabase(candidate))}.\n\nUne copie de sécurité du contenu actuel est conservée automatiquement.`,
+    confirmLabel: 'Remplacer',
+    apply: () => {
+      writeSafetyBackup('avant-remplacement');
+      const previous = db;
+      db = candidate;
+      ensureSchema();
+      persist();
+      previous.close();
+      return `Bibliothèque « ${name} » remplacée par le contenu du fichier.`;
+    },
+    cancel: () => candidate.close()
+  };
+}
+
+/* Analyse un fichier choisi par l'utilisateur et prepare l'operation a confirmer. */
+function analyzeImportFile(filePath) {
+  const ext = path.extname(filePath || '').toLowerCase();
+  if (ext === '.sqlite3' || ext === '.db') {
+    return replaceDatabasePlan(loadDatabaseFromBytes(fs.readFileSync(filePath)));
+  }
+  if (ext === '.json') {
+    const { obj, trusted } = readBackupJson(filePath);
+    const parsed = parseBackupFile(obj, { trusted });
+    if (parsed && parsed.kind === 'full') {
+      if (!parsed.libraries.length) throw new Error('Cette sauvegarde ne contient aucune bibliothèque.');
+      return restorePlan(parsed.libraries, parsed.generatedAt);
+    }
+    if (parsed && parsed.kind === 'single') {
+      const key = parsed.library && getLibraryByKey(parsed.library) ? parsed.library : currentLibrary;
+      return restorePlan([{ key, name: libraryDisplayName(key), data: parsed.data }], parsed.generatedAt);
+    }
+    return mergePlan(obj);
+  }
+  if (ext === '.xlsx' || ext === '.xls') {
+    let workbook;
+    try {
+      workbook = XLSX.read(fs.readFileSync(filePath), { type: 'buffer' });
+    } catch (err) {
+      throw new Error('Ce fichier Excel n\'a pas pu être lu.');
+    }
+    const sheets = {};
+    workbook.SheetNames.forEach((name) => {
+      sheets[name] = XLSX.utils.sheet_to_json(workbook.Sheets[name], { defval: null });
+    });
+    return mergePlan(sheetsToData(sheets));
+  }
+  throw new Error('Format de fichier non pris en charge. Choisissez un fichier .json, .xlsx, .xls, .sqlite3 ou .db.');
+}
+
+async function runImportFile(filePath) {
+  const plan = analyzeImportFile(filePath);
+  const ok = await askConfirmation(plan);
+  if (!ok) {
+    if (plan.cancel) plan.cancel();
+    return { canceled: true };
+  }
+  return { canceled: false, message: plan.apply() };
+}
+
+/* Sauvegarde "cle USB" : toutes les bibliotheques, en clair, lisible sur n'importe quel ordinateur. */
+function collectAllLibraries() {
+  const libraries = [];
+  const unreadable = [];
+  libraryCatalog.forEach((entry) => {
+    if (db && entry.key === currentLibrary) {
+      libraries.push({ key: entry.key, name: entry.name, data: dumpDatabase(db) });
+      return;
+    }
+    const filePath = getDbPath(entry.key);
+    if (!fs.existsSync(filePath)) return;
+    let other = null;
+    try {
+      other = new SQL.Database(new Uint8Array(readEncryptedFile(filePath)));
+      libraries.push({ key: entry.key, name: entry.name, data: dumpDatabase(other) });
+    } catch (e) {
+      unreadable.push(entry.name);
+    } finally {
+      if (other) other.close();
+    }
+  });
+  return { libraries, unreadable };
+}
+
+async function saveBackupToFile() {
+  const { libraries, unreadable } = collectAllLibraries();
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Enregistrer la sauvegarde',
+    defaultPath: path.join(app.getPath('documents'), `Sauvegarde Biblio-rians ${localDateStamp()}.json`),
+    buttonLabel: 'Enregistrer la sauvegarde',
+    filters: [{ name: 'Sauvegarde Biblio-rians', extensions: ['json'] }]
+  });
+  if (result.canceled || !result.filePath) return { canceled: true };
+
+  const payload = buildBackupFile({ appVersion: app.getVersion(), libraries });
+  const tmpPath = `${result.filePath}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(payload), 'utf-8');
+  fs.renameSync(tmpPath, result.filePath);
+
+  // Verification : on relit le fichier tel qu'il a ete ecrit sur le disque ou la cle.
+  let check = null;
+  try {
+    check = parseBackupFile(JSON.parse(fs.readFileSync(result.filePath, 'utf-8')));
+  } catch (e) {
+    check = null;
+  }
+  if (!check || check.kind !== 'full' || check.libraries.length !== libraries.length) {
+    throw new Error('La sauvegarde a été écrite mais sa vérification a échoué. Réessayez, ou choisissez un autre emplacement.');
+  }
+
+  updateConfig({ lastExternalBackupAt: new Date().toISOString() });
+  let message = `Sauvegarde enregistrée et vérifiée : ${result.filePath}`;
+  if (unreadable.length) {
+    message += ` (attention : ${unreadable.join(', ')} n'a pas pu être lue et n'est pas dans la sauvegarde)`;
+  }
+  return { canceled: false, path: result.filePath, message };
+}
+
+function getBackupStatus() {
+  const lastAt = loadConfig().lastExternalBackupAt || null;
+  const days = lastAt ? Math.floor((Date.now() - new Date(lastAt).getTime()) / (24 * 3600 * 1000)) : null;
+  return { lastAt, days };
+}
+
+/*
+ * Secours quand une bibliotheque ne s'ouvre pas (fichier abime, session
+ * Windows changee...). Au lieu de fermer l'application, on propose de
+ * restaurer. Le fichier fautif n'est jamais efface, seulement mis de cote.
+ * Retourne true si la bibliotheque peut maintenant etre ouverte.
+ */
+async function rescueLibrary(libraryKey, error, { atStartup = false } = {}) {
+  logStartupError(error);
+  const entry = getLibraryByKey(libraryKey) || DEFAULT_LIBRARIES[0];
+  const parent = atStartup ? null : mainWindow;
+
+  for (;;) {
+    const latest = findLatestReadableAutoBackup(entry.key);
+    const choices = [];
+    if (latest) choices.push({ id: 'auto', label: `Restaurer la sauvegarde automatique du ${formatDateTime(latest.date)}` });
+    choices.push({ id: 'file', label: 'Choisir un fichier de sauvegarde (clé USB…)' });
+    choices.push({ id: 'empty', label: 'Repartir d\'une bibliothèque vide' });
+    choices.push({ id: 'cancel', label: atStartup ? 'Quitter' : 'Annuler' });
+
+    const { response } = await showMessage(parent, {
+      type: 'error',
+      title: 'Biblio-rians - Problème d\'ouverture',
+      message: `La bibliothèque « ${entry.name} » n'a pas pu être ouverte.`,
+      detail: `${error && error.message ? error.message : error}\n\nPas d'inquiétude : le fichier actuel ne sera pas effacé, il sera seulement mis de côté dans le dossier de l'application.\n\nQue voulez-vous faire ?`,
+      buttons: choices.map((c) => c.label),
+      defaultId: 0,
+      cancelId: choices.length - 1,
+      noLink: true
+    });
+    const choice = choices[response] ? choices[response].id : 'cancel';
+    if (choice === 'cancel') return false;
+
+    try {
+      if (choice === 'auto') {
+        restoreLibraries([{ key: entry.key, name: entry.name, data: latest.data }]);
+        return true;
+      }
+      if (choice === 'empty') {
+        const ok = await askConfirmation({
+          parent,
+          title: 'Repartir de zéro',
+          message: `Repartir d'une bibliothèque « ${entry.name} » vide ?`,
+          detail: 'Le fichier actuel est conservé de côté (il n\'est pas supprimé), au cas où il pourrait être récupéré plus tard.',
+          confirmLabel: 'Repartir de zéro'
+        });
+        if (!ok) continue;
+        setAsideFile(getDbPath(entry.key), 'endommage');
+        return true;
+      }
+      if (choice === 'file' && await rescueFromFile(entry, parent)) {
+        return true;
+      }
+    } catch (err) {
+      await showMessage(parent, {
+        type: 'error',
+        title: 'Biblio-rians',
+        message: 'La restauration n\'a pas pu être faite.',
+        detail: err && err.message ? err.message : String(err),
+        buttons: ['OK'],
+        noLink: true
+      });
+    }
+  }
+}
+
+async function rescueFromFile(entry, parent) {
+  const options = {
+    title: 'Choisir une sauvegarde',
+    properties: ['openFile'],
+    filters: [{ name: 'Sauvegardes Biblio-rians', extensions: ['json', 'sqlite3', 'db'] }]
+  };
+  const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+  if (result.canceled || !result.filePaths[0]) return false;
+  const filePath = result.filePaths[0];
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.sqlite3' || ext === '.db') {
+    const candidate = loadDatabaseFromBytes(fs.readFileSync(filePath));
+    try {
+      const ok = await askConfirmation({
+        parent,
+        title: 'Restaurer une sauvegarde',
+        message: `Utiliser ce fichier pour « ${entry.name} » ?`,
+        detail: `Contenu du fichier : ${describeCounts(countDatabase(candidate))}.`,
+        confirmLabel: 'Restaurer'
+      });
+      if (!ok) return false;
+      setAsideFile(getDbPath(entry.key), 'endommage');
+      writeEncryptedFile(getDbPath(entry.key), Buffer.from(candidate.export()));
+      return true;
+    } finally {
+      candidate.close();
+    }
+  }
+
+  const { obj, trusted } = readBackupJson(filePath);
+  const parsed = parseBackupFile(obj, { trusted });
+  if (!parsed) {
+    throw new Error('Ce fichier est un export, pas une sauvegarde complète. Choisissez un fichier créé avec le bouton « Sauvegarder ».');
+  }
+  const libraries = parsed.kind === 'full'
+    ? parsed.libraries
+    : [{ key: entry.key, name: entry.name, data: parsed.data }];
+  if (!libraries.some((lib) => slugifyLibraryKey(lib.key || lib.name) === entry.key)) {
+    throw new Error(`Cette sauvegarde ne contient pas la bibliothèque « ${entry.name} ».`);
+  }
+  const plan = restorePlan(libraries, parsed.generatedAt);
+  if (!await askConfirmation({ ...plan, parent })) return false;
+  plan.apply();
+  return true;
 }
 
 function hashPassword(password, salt) {
@@ -696,7 +1183,7 @@ function buildExportData(options) {
   const datasets = options.datasets || [];
   const fields = options.fields || {};
   const payload = {
-    meta: { generated_at: new Date().toISOString(), version: '0.1.0' }
+    meta: { generated_at: new Date().toISOString(), version: app.getVersion() }
   };
 
   if (datasets.includes('books')) {
@@ -731,179 +1218,6 @@ function buildExportData(options) {
   }
 
   return payload;
-}
-
-function normalizeSheetName(name) {
-  const key = String(name || '').toLowerCase().replace(/\s+/g, '_');
-  if (key.includes('annee')) return 'school_years';
-  if (key.includes('historique')) return 'student_history';
-  if (key.includes('emprunt')) return 'loans';
-  if (key.includes('eleve')) return 'students';
-  if (key.includes('classe')) return 'classes';
-  if (key.includes('livre')) return 'books';
-  return key;
-}
-
-function getOrCreateSchoolYear(name) {
-  const clean = (name || '').trim();
-  if (!clean) return null;
-  const existing = get('SELECT id FROM school_years WHERE name = ?', [clean]);
-  if (existing) return existing.id;
-  return insertAndGetId(
-    'INSERT INTO school_years (name, created_at) VALUES (?, ?)',
-    [clean, new Date().toISOString()]
-  );
-}
-
-function getOrCreateClass(row) {
-  const name = (row.name || row.class_name || row.class || '').trim();
-  if (!name) return null;
-  const yearId = row.school_year_id
-    || (row.school_year ? getOrCreateSchoolYear(row.school_year) : null);
-  const existing = get(
-    'SELECT id FROM classes WHERE name = ? AND school_year_id IS ?',
-    [name, yearId]
-  );
-  if (existing) return existing.id;
-  return insertAndGetId(
-    'INSERT INTO classes (school_year_id, name, teacher_name, level, created_at) VALUES (?, ?, ?, ?, ?)',
-    [yearId || null, name, row.teacher_name || null, row.level || null, new Date().toISOString()]
-  );
-}
-
-function findBookId(row) {
-  if (row.book_id) {
-    const existing = get('SELECT id FROM books WHERE id = ?', [row.book_id]);
-    if (existing) return existing.id;
-  }
-  const isbn = (row.isbn || '').trim();
-  if (isbn) {
-    const existing = get('SELECT id FROM books WHERE isbn = ?', [isbn]);
-    if (existing) return existing.id;
-  }
-  const title = (row.title || row.book_title || '').trim();
-  if (title) {
-    const author = (row.author || '').trim();
-    const year = row.year || null;
-    const existing = get(
-      'SELECT id FROM books WHERE title = ? AND COALESCE(author, "") = ? AND COALESCE(year, 0) = COALESCE(?, 0)',
-      [title, author, year]
-    );
-    if (existing) return existing.id;
-  }
-  return null;
-}
-
-function findStudentId(row) {
-  if (row.student_id) {
-    const existing = get('SELECT id FROM students WHERE id = ?', [row.student_id]);
-    if (existing) return existing.id;
-  }
-  const name = (row.student_name || '').trim();
-  let lastName = (row.last_name || '').trim();
-  let firstName = (row.first_name || '').trim();
-  if (!lastName && name) {
-    const parts = name.split(' ').filter(Boolean);
-    lastName = parts.shift() || '';
-    firstName = parts.join(' ');
-  }
-  const classId = row.class_id || (row.class_name ? getOrCreateClass(row) : null);
-  if (!lastName && !firstName) return null;
-  const existing = get(
-    'SELECT id FROM students WHERE COALESCE(last_name, "") = ? AND COALESCE(first_name, "") = ? AND COALESCE(class_id, 0) = COALESCE(?, 0)',
-    [lastName, firstName, classId]
-  );
-  if (existing) return existing.id;
-  return insertAndGetId(
-    'INSERT INTO students (class_id, last_name, first_name, birth_year, created_at) VALUES (?, ?, ?, ?, ?)',
-    [classId || null, lastName || null, firstName || null, row.birth_year || null, new Date().toISOString()]
-  );
-}
-
-function importMerge(data, datasets) {
-  const now = new Date().toISOString();
-
-  if (datasets.includes('school_years')) {
-    (data.school_years || []).forEach((y) => {
-      getOrCreateSchoolYear(y.name);
-    });
-  }
-
-  if (datasets.includes('classes')) {
-    (data.classes || []).forEach((c) => {
-      getOrCreateClass(c);
-    });
-  }
-
-  if (datasets.includes('books')) {
-    (data.books || []).forEach((b) => {
-      if (findBookId(b)) return;
-      run(
-        'INSERT INTO books (isbn, title, author, year, copies, numero, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [b.isbn || null, b.title || null, b.author || null, b.year || null, b.copies || 1, b.numero || null, b.location || null, b.created_at || now]
-      );
-    });
-  }
-
-  if (datasets.includes('students')) {
-    (data.students || []).forEach((s) => {
-      const classId = s.class_id || (s.class_name ? getOrCreateClass(s) : null);
-      const lastName = s.last_name || null;
-      const firstName = s.first_name || null;
-      const existing = get(
-        'SELECT id FROM students WHERE COALESCE(last_name, "") = ? AND COALESCE(first_name, "") = ? AND COALESCE(class_id, 0) = COALESCE(?, 0)',
-        [lastName || '', firstName || '', classId]
-      );
-      if (existing) return;
-      run(
-        'INSERT INTO students (class_id, last_name, first_name, birth_year, created_at) VALUES (?, ?, ?, ?, ?)',
-        [classId || null, lastName, firstName, s.birth_year || null, s.created_at || now]
-      );
-    });
-  }
-
-  if (datasets.includes('student_history')) {
-    (data.student_history || []).forEach((h) => {
-      const studentId = findStudentId(h);
-      const classId = h.class_id || (h.class_name ? getOrCreateClass(h) : null);
-      if (!studentId) return;
-      const existing = get(
-        'SELECT id FROM student_history WHERE student_id = ? AND COALESCE(class_id, 0) = COALESCE(?, 0) AND start_date = ?',
-        [studentId, classId, h.start_date || '']
-      );
-      if (existing) return;
-      run(
-        'INSERT INTO student_history (student_id, class_id, school_year_id, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
-        [
-          studentId,
-          classId || null,
-          h.school_year_id || (h.school_year ? getOrCreateSchoolYear(h.school_year) : null),
-          h.start_date || now,
-          h.end_date || null
-        ]
-      );
-    });
-  }
-
-  if (datasets.includes('loans')) {
-    (data.loans || []).forEach((l) => {
-      const bookId = findBookId(l);
-      const studentId = findStudentId(l);
-      if (!bookId || !studentId) return;
-      const existing = get(
-        'SELECT id FROM loans WHERE book_id = ? AND student_id = ? AND loan_date = ?',
-        [bookId, studentId, l.loan_date || '']
-      );
-      if (existing) return;
-      run(
-        'INSERT INTO loans (book_id, student_id, loan_date, due_date, return_date) VALUES (?, ?, ?, ?, ?)',
-        [bookId, studentId, l.loan_date || now, l.due_date || null, l.return_date || null]
-      );
-    });
-  }
-
-  saveDb();
-  backupJson();
 }
 
 function listStudents() {
@@ -1078,13 +1392,23 @@ function setupIpc() {
   ipcMain.handle('library:delete', (_e, libraryKey) => deleteLibrary(libraryKey));
   ipcMain.handle('library:info', () => getDbStats());
   ipcMain.handle('stats:get', () => computeStatistics(db));
-  ipcMain.handle('library:set', (_e, libraryKey) => {
+  ipcMain.handle('library:set', async (_e, libraryKey) => {
     if (!getLibraryByKey(libraryKey)) {
       throw new Error('Bibliotheque inconnue.');
     }
-    openDbForLibrary(libraryKey);
+    try {
+      openDbForLibrary(libraryKey);
+    } catch (err) {
+      const rescued = await rescueLibrary(libraryKey, err);
+      if (!rescued) {
+        throw new Error('Cette bibliothèque n\'a pas pu être ouverte. La bibliothèque précédente reste active.');
+      }
+      openDbForLibrary(libraryKey);
+    }
     return currentLibrary;
   });
+  ipcMain.handle('backup:save', () => saveBackupToFile());
+  ipcMain.handle('backup:status', () => getBackupStatus());
   ipcMain.handle('books:list', () => listBooks());
   ipcMain.handle('books:add', (_e, payload) => {
     const now = new Date().toISOString();
@@ -1092,8 +1416,7 @@ function setupIpc() {
       INSERT INTO books (isbn, title, author, year, copies, numero, location, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null, now]);
-    saveDb();
-    backupJson();
+    persist();
     return listBooks();
   });
   ipcMain.handle('books:update', (_e, payload) => {
@@ -1102,8 +1425,7 @@ function setupIpc() {
       SET isbn = ?, title = ?, author = ?, year = ?, copies = ?, numero = ?, location = ?
       WHERE id = ?
     `, [payload.isbn || null, payload.title, payload.author || null, payload.year || null, payload.copies || 1, payload.numero || null, payload.location || null, payload.id]);
-    saveDb();
-    backupJson();
+    persist();
     return listBooks();
   });
   ipcMain.handle('books:delete', (_e, id) => {
@@ -1112,8 +1434,7 @@ function setupIpc() {
       throw new Error('Impossible de supprimer ce livre : un ou plusieurs exemplaires sont actuellement empruntes. Enregistrez d\'abord leur retour.');
     }
     run('DELETE FROM books WHERE id = ?', [id]);
-    saveDb();
-    backupJson();
+    persist();
     return listBooks();
   });
   ipcMain.handle('books:lookup', async (_e, isbn) => {
@@ -1135,8 +1456,7 @@ function setupIpc() {
           [data.class_id, data.last_name, data.first_name, data.birth_year, now]
         );
     insertStudentHistory(studentId, data.class_id);
-    saveDb();
-    backupJson();
+    persist();
     return listStudents();
   });
   ipcMain.handle('students:update', (_e, payload) => {
@@ -1157,28 +1477,24 @@ function setupIpc() {
     if (before && before.class_id !== data.class_id) {
       updateStudentHistoryOnClassChange(payload.id, data.class_id);
     }
-    saveDb();
-    backupJson();
+    persist();
     return listStudents();
   });
     ipcMain.handle('years:list', () => all('SELECT * FROM school_years ORDER BY name DESC'));
     ipcMain.handle('years:add', (_e, payload) => {
       const now = new Date().toISOString();
       insertAndGetId('INSERT INTO school_years (name, created_at) VALUES (?, ?)', [payload.name, now]);
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
     ipcMain.handle('years:update', (_e, payload) => {
       run('UPDATE school_years SET name = ? WHERE id = ?', [payload.name, payload.id]);
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
     ipcMain.handle('years:delete', (_e, id) => {
       run('DELETE FROM school_years WHERE id = ?', [id]);
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
 
@@ -1196,8 +1512,7 @@ function setupIpc() {
         'INSERT INTO classes (school_year_id, name, teacher_name, level, created_at) VALUES (?, ?, ?, ?, ?)',
         [payload.school_year_id || null, className, payload.teacher_name || null, payload.level || null, now]
       );
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM classes');
     });
     ipcMain.handle('classes:update', (_e, payload) => {
@@ -1207,14 +1522,12 @@ function setupIpc() {
         'UPDATE classes SET school_year_id = ?, name = ?, teacher_name = ?, level = ? WHERE id = ?',
         [payload.school_year_id || null, className, payload.teacher_name || null, payload.level || null, payload.id]
       );
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM classes');
     });
     ipcMain.handle('classes:delete', (_e, id) => {
       run('DELETE FROM classes WHERE id = ?', [id]);
-      saveDb();
-      backupJson();
+      persist();
       return all('SELECT * FROM classes');
     });
     ipcMain.handle('students:history', (_e, studentId) => {
@@ -1236,34 +1549,37 @@ function setupIpc() {
         throw new Error('Donnees manquantes pour cloturer l\'annee.');
       }
 
-      let nextYear = get('SELECT id FROM school_years WHERE name = ?', [nextName]);
-      const nextYearId = nextYear ? nextYear.id : insertAndGetId(
-        'INSERT INTO school_years (name, created_at) VALUES (?, ?)',
-        [nextName, now]
-      );
-
-      (payload.classes || []).forEach((c) => {
-        const classId = c.class_id;
-        const newName = c.new_name || '';
-        const newTeacher = c.new_teacher_name || null;
-        const newLevel = c.new_level || null;
-
-        const newClassId = insertAndGetId(
-          'INSERT INTO classes (school_year_id, name, teacher_name, level, created_at) VALUES (?, ?, ?, ?, ?)',
-          [nextYearId, newName, newTeacher, newLevel, now]
+      writeSafetyBackup('avant-cloture-annee');
+      // Tout ou rien : une erreur au milieu ne laisse pas une annee a moitie cloturee.
+      withTransaction(db, () => {
+        const nextYear = get('SELECT id FROM school_years WHERE name = ?', [nextName]);
+        const nextYearId = nextYear ? nextYear.id : insertAndGetId(
+          'INSERT INTO school_years (name, created_at) VALUES (?, ?)',
+          [nextName, now]
         );
 
-        if (c.carry_students) {
-          const students = all('SELECT id FROM students WHERE class_id = ?', [classId]);
-          students.forEach((s) => {
-            run('UPDATE students SET class_id = ? WHERE id = ?', [newClassId, s.id]);
-            updateStudentHistoryOnClassChange(s.id, newClassId);
-          });
-        }
+        (payload.classes || []).forEach((c) => {
+          const classId = c.class_id;
+          const newName = c.new_name || '';
+          const newTeacher = c.new_teacher_name || null;
+          const newLevel = c.new_level || null;
+
+          const newClassId = insertAndGetId(
+            'INSERT INTO classes (school_year_id, name, teacher_name, level, created_at) VALUES (?, ?, ?, ?, ?)',
+            [nextYearId, newName, newTeacher, newLevel, now]
+          );
+
+          if (c.carry_students) {
+            const students = all('SELECT id FROM students WHERE class_id = ?', [classId]);
+            students.forEach((s) => {
+              run('UPDATE students SET class_id = ? WHERE id = ?', [newClassId, s.id]);
+              updateStudentHistoryOnClassChange(s.id, newClassId);
+            });
+          }
+        });
       });
 
-      saveDb();
-      backupJson();
+      persist();
       return true;
     });
   ipcMain.handle('students:delete', (_e, id) => {
@@ -1272,8 +1588,7 @@ function setupIpc() {
       throw new Error('Impossible de supprimer cet eleve : il a un ou plusieurs emprunts en cours. Enregistrez d\'abord leur retour.');
     }
     run('DELETE FROM students WHERE id = ?', [id]);
-    saveDb();
-    backupJson();
+    persist();
     return listStudents();
   });
 
@@ -1288,14 +1603,12 @@ function setupIpc() {
       INSERT INTO loans (book_id, student_id, loan_date, due_date, return_date)
       VALUES (?, ?, ?, ?, NULL)
     `, [payload.book_id, payload.student_id, now, payload.due_date || null]);
-    saveDb();
-    backupJson();
+    persist();
     return listLoansActive();
   });
   ipcMain.handle('loans:return', (_e, id) => {
     run('UPDATE loans SET return_date = ? WHERE id = ?', [new Date().toISOString(), id]);
-    saveDb();
-    backupJson();
+    persist();
     return listLoansActive();
   });
   ipcMain.handle('loans:returnByBook', (_e, payload) => {
@@ -1318,109 +1631,29 @@ function setupIpc() {
       throw new Error('Aucun emprunt en cours pour ce livre.');
     }
     run('UPDATE loans SET return_date = ? WHERE id = ?', [new Date().toISOString(), loan.id]);
-    saveDb();
-    backupJson();
+    persist();
     return listLoansActive();
   });
   ipcMain.handle('loans:delete', (_e, id) => {
     run('DELETE FROM loans WHERE id = ?', [id]);
-    saveDb();
-    backupJson();
+    persist();
     return listLoansActive();
   });
 
-  ipcMain.handle('data:export', () => {
-    return {
-      meta: { generated_at: new Date().toISOString(), version: '0.1.0' },
-      books: all('SELECT * FROM books'),
-      school_years: all('SELECT * FROM school_years'),
-      classes: all('SELECT * FROM classes'),
-      students: all('SELECT * FROM students'),
-      student_history: all('SELECT * FROM student_history'),
-      loans: all('SELECT * FROM loans')
-    };
-  });
-
-  ipcMain.handle('data:importDb', (_e, payload) => {
-    if (!payload || !payload.buffer) {
-      throw new Error('Fichier BDD manquant.');
-    }
-    importDatabaseBuffer(payload.buffer);
-    return true;
-  });
-
-  ipcMain.handle('import:pick', async () => {
-    const result = await dialog.showOpenDialog({
+  ipcMain.handle('import:pick', async (_e, options) => {
+    const fromAutoBackups = !!(options && options.fromAutoBackups);
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: fromAutoBackups ? 'Revenir à une sauvegarde automatique' : 'Importer ou restaurer',
+      defaultPath: fromAutoBackups ? getBackupsDir() : app.getPath('documents'),
       properties: ['openFile'],
-      filters: [
-        { name: 'Sauvegardes', extensions: ['json', 'xlsx', 'xls', 'sqlite3', 'db'] }
-      ]
+      filters: fromAutoBackups
+        ? [{ name: 'Sauvegardes automatiques', extensions: ['json'] }]
+        : [{ name: 'Sauvegardes et fichiers de données', extensions: ['json', 'xlsx', 'xls', 'sqlite3', 'db'] }]
     });
     if (result.canceled || !result.filePaths[0]) {
       return { canceled: true };
     }
-    const info = importFileAtPath(result.filePaths[0]);
-    return { canceled: false, ...info };
-  });
-
-  ipcMain.handle('data:import', (_e, payload) => {
-    const data = payload || {};
-    run('DELETE FROM loans');
-    run('DELETE FROM student_history');
-    run('DELETE FROM students');
-    run('DELETE FROM classes');
-    run('DELETE FROM school_years');
-    run('DELETE FROM books');
-
-    (data.school_years || []).forEach((y) => {
-      run(
-        'INSERT INTO school_years (id, name, created_at) VALUES (?, ?, ?)',
-        [y.id, y.name, y.created_at || new Date().toISOString()]
-      );
-    });
-    (data.classes || []).forEach((c) => {
-      run(
-        'INSERT INTO classes (id, school_year_id, name, teacher_name, level, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [c.id, c.school_year_id || null, c.name, c.teacher_name || null, c.level || null, c.created_at || new Date().toISOString()]
-      );
-    });
-
-    (data.books || []).forEach((b) => {
-      run(
-        'INSERT INTO books (id, isbn, title, author, year, copies, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [b.id, b.isbn || null, b.title, b.author || null, b.year || null, b.copies || 1, b.location || null, b.created_at || new Date().toISOString()]
-      );
-    });
-    (data.students || []).forEach((s) => {
-      const normalized = normalizeStudentPayload(s);
-      run(
-        'INSERT INTO students (id, class_id, last_name, first_name, birth_year, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [
-          s.id,
-          normalized.class_id,
-          normalized.last_name,
-          normalized.first_name,
-          normalized.birth_year,
-          s.created_at || new Date().toISOString()
-        ]
-      );
-    });
-    (data.student_history || []).forEach((h) => {
-      run(
-        'INSERT INTO student_history (id, student_id, class_id, school_year_id, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)',
-        [h.id, h.student_id, h.class_id || null, h.school_year_id || null, h.start_date || new Date().toISOString(), h.end_date || null]
-      );
-    });
-    (data.loans || []).forEach((l) => {
-      run(
-        'INSERT INTO loans (id, book_id, student_id, loan_date, due_date, return_date) VALUES (?, ?, ?, ?, ?, ?)',
-        [l.id, l.book_id, l.student_id, l.loan_date || new Date().toISOString(), l.due_date || null, l.return_date || null]
-      );
-    });
-
-    saveDb();
-    backupJson();
-    return true;
+    return runImportFile(result.filePaths[0]);
   });
 
   ipcMain.handle('data:exportCustom', (_e, options) => {
@@ -1442,41 +1675,44 @@ function setupIpc() {
     return data;
   });
 
-  ipcMain.handle('data:importCustom', (_e, options) => {
-    const payload = options || {};
-    const datasets = payload.datasets || [];
-    let data = payload.data || {};
+}
 
-    if (payload.format === 'xlsx' && payload.buffer) {
-      const buffer = Buffer.from(payload.buffer);
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const parsed = {};
-      workbook.SheetNames.forEach((name) => {
-        const key = normalizeSheetName(name);
-        const sheet = workbook.Sheets[name];
-        parsed[key] = XLSX.utils.sheet_to_json(sheet, { defval: null });
-      });
-      data = parsed;
+// Une seule fenetre a la fois : deux fenetres ouvertes sur la meme base
+// s'ecraseraient mutuellement leurs modifications.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  app.whenReady().then(async () => {
+    try {
+      const opened = await initDb();
+      if (!opened) {
+        app.quit();
+        return;
+      }
+      setupIpc();
+      createWindow();
+    } catch (err) {
+      logStartupError(err);
+      dialog.showErrorBox(
+        'Biblio-rians - Erreur au demarrage',
+        `Une erreur a empeche le demarrage de l'application :\n\n${err && err.message ? err.message : err}\n\nDetails enregistres dans error.log (dossier de donnees de l'application).`
+      );
+      app.quit();
     }
-
-    importMerge(data, datasets);
-    return true;
   });
 }
 
-app.whenReady().then(async () => {
-  try {
-    await initDb();
-    setupIpc();
-    createWindow();
-  } catch (err) {
-    logStartupError(err);
-    dialog.showErrorBox(
-      'Biblio-rians - Erreur au demarrage',
-      `Une erreur a empeche le demarrage de l'application :\n\n${err && err.message ? err.message : err}\n\nDetails enregistres dans error.log (dossier de donnees de l'application).`
-    );
-    app.quit();
-  }
+app.on('before-quit', () => {
+  flushAutoBackup();
 });
 
 process.on('uncaughtException', (err) => {

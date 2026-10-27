@@ -231,12 +231,6 @@ const exportModal = document.getElementById('exportModal');
 const exportClose = document.getElementById('exportClose');
 const exportForm = document.getElementById('exportForm');
 const exportFormat = document.getElementById('exportFormat');
-const importModal = document.getElementById('importModal');
-const importClose = document.getElementById('importClose');
-const importForm = document.getElementById('importForm');
-const importFormat = document.getElementById('importFormat');
-const importFile = document.getElementById('importFile');
-const importQuickInput = document.getElementById('importQuickInput');
 
 const tabs = document.querySelectorAll('.tabs button');
 const tabSections = {
@@ -451,39 +445,84 @@ if (openExport && exportModal && exportClose) {
   exportClose.addEventListener('click', () => hideModal(exportModal));
 }
 
-console.log('openImport element:', openImport);
-if (openImport) {
-  console.log('Attaching click listener to openImport button');
-  openImport.addEventListener('click', () => {
-    console.log('openImport clicked!');
-    setStatus('Ouverture de la fenetre d\'import...', false);
-    if (window.api && window.api.importPick) {
-      window.api.importPick().then((res) => {
-        if (!res || res.canceled) {
-          setStatus('Import annule.', false);
-          return;
-        }
-        setStatus('Import ' + (res.type || 'fichier') + ' termine.', false);
-        refreshAll();
-      }).catch((err) => setStatus('Import impossible: ' + err.message, true));
+/*
+ * Import et restauration : le fichier est analyse par l'application, qui
+ * affiche ce qu'elle va faire et demande confirmation avant de toucher aux
+ * donnees (une copie de securite est toujours faite avant).
+ */
+async function runImportPick(options) {
+  if (!window.api || !window.api.importPick) return;
+  setStatus('Choix du fichier...', false);
+  try {
+    const res = await window.api.importPick(options || {});
+    if (!res || res.canceled) {
+      setStatus('Aucune modification.', false);
       return;
     }
-    if (importQuickInput) {
-      setStatus('Ouverture du selecteur de fichier...', false);
-      importQuickInput.value = '';
-      importQuickInput.click();
-      return;
-    }
-    if (importModal && importClose) {
-      setStatus('Ouverture de la fenetre d\'import...', false);
-      showModal(importModal);
-    }
-  });
+    await refreshLibraries(librarySelect ? librarySelect.value : null);
+    await refreshAll();
+    await updateLibraryStatus();
+    setStatus(res.message || 'Import termine.', false);
+  } catch (err) {
+    setStatus('Import impossible : ' + err.message, true);
+  }
 }
 
-if (importClose && importModal) {
-  importClose.addEventListener('click', () => hideModal(importModal));
+if (openImport) {
+  openImport.addEventListener('click', () => runImportPick());
 }
+
+/* ---------- Sauvegarde sur cle USB ---------- */
+const BACKUP_REMINDER_DAYS = 7;
+const backupReminder = document.getElementById('backupReminder');
+const backupReminderTitle = document.getElementById('backupReminderTitle');
+const backupReminderText = document.getElementById('backupReminderText');
+
+async function refreshBackupReminder() {
+  if (!backupReminder || !window.api || !window.api.backupStatus) return;
+  try {
+    const status = await window.api.backupStatus();
+    const days = status ? status.days : null;
+    const neverSaved = days === null || days === undefined;
+    if (!neverSaved && days < BACKUP_REMINDER_DAYS) {
+      backupReminder.classList.add('hidden');
+      return;
+    }
+    backupReminderTitle.textContent = neverSaved
+      ? 'Vous n\'avez encore jamais sauvegardé vos données'
+      : `Dernière sauvegarde il y a ${days} jours`;
+    backupReminderText.textContent = 'Si l\'ordinateur tombe en panne, une sauvegarde sur clé USB permet de tout retrouver. Branchez une clé, cliquez sur le bouton, puis choisissez la clé.';
+    backupReminder.classList.remove('hidden');
+  } catch (e) {
+    // le rappel est facultatif
+  }
+}
+
+async function runBackupSave() {
+  if (!window.api || !window.api.backupSave) return;
+  setStatus('Sauvegarde en cours...', false);
+  try {
+    const res = await window.api.backupSave();
+    if (!res || res.canceled) {
+      setStatus('Sauvegarde annulee.', false);
+      return;
+    }
+    setStatus(res.message || 'Sauvegarde enregistree.', false);
+    playSuccessSound();
+  } catch (err) {
+    setStatus('Sauvegarde impossible : ' + err.message, true);
+  }
+  refreshBackupReminder();
+}
+
+['openBackupSave', 'backupReminderBtn', 'backupSaveBtn'].forEach((id) => {
+  const btn = document.getElementById(id);
+  if (btn) btn.addEventListener('click', runBackupSave);
+});
+const backupRestoreBtn = document.getElementById('backupRestoreBtn');
+if (backupRestoreBtn) backupRestoreBtn.addEventListener('click', () => runImportPick());
+const backupAutoRestoreBtn = document.getElementById('backupAutoRestoreBtn');
+if (backupAutoRestoreBtn) backupAutoRestoreBtn.addEventListener('click', () => runImportPick({ fromAutoBackups: true }));
 
 document.querySelectorAll('.export-toggle').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -496,50 +535,6 @@ document.querySelectorAll('.export-toggle').forEach((btn) => {
     });
   });
 });
-
-if (importQuickInput) {
-  importQuickInput.addEventListener('change', async (event) => {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    if (!window.api) {
-      setStatus('Import indisponible. Relancez l\'app.', true);
-      return;
-    }
-    const name = file.name.toLowerCase();
-    const datasets = ['books', 'students', 'classes', 'school_years', 'loans', 'student_history'];
-    try {
-      if (name.endsWith('.sqlite3') || name.endsWith('.db')) {
-        if (!window.api.dataImportDb) {
-          setStatus('Import BDD indisponible. Relancez l\'app.', true);
-          return;
-        }
-        const buffer = new Uint8Array(await file.arrayBuffer());
-        await window.api.dataImportDb({ buffer: Array.from(buffer) });
-        setStatus('Import BDD termine.');
-        refreshAll();
-        return;
-      }
-      if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-        const buffer = new Uint8Array(await file.arrayBuffer());
-        await window.api.dataImportCustom({ format: 'xlsx', datasets, buffer: Array.from(buffer) });
-        setStatus('Import Excel termine.');
-        refreshAll();
-        return;
-      }
-      if (name.endsWith('.json')) {
-        const content = await file.text();
-        const payload = JSON.parse(content);
-        await window.api.dataImportCustom({ format: 'json', datasets, data: payload });
-        setStatus('Import JSON termine.');
-        refreshAll();
-        return;
-      }
-      setStatus('Format non supporte.', true);
-    } catch (err) {
-      setStatus('Import impossible: ' + err.message, true);
-    }
-  });
-}
 
 function resetEditModes() {
   delete schoolYearForm.dataset.mode;
@@ -652,44 +647,6 @@ if (exportForm) {
     }
     exportModal.classList.add('hidden');
     await runExport({ format, datasets, fields });
-  });
-}
-
-if (importForm) {
-  importForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    try {
-      const file = importFile && importFile.files ? importFile.files[0] : null;
-      const datasets = getCheckedValues('#importForm input[name="importDataset"]');
-      const format = importFormat ? importFormat.value : 'json';
-      if (!window.api || !window.api.dataImportCustom) {
-        setStatus('Import indisponible. Relancez l\'app.', true);
-        return;
-      }
-      if (!file) {
-        setStatus('Choisissez un fichier a importer.', true);
-        return;
-      }
-      if (!datasets.length) {
-        setStatus('Choisissez au moins un jeu de donnees.', true);
-        return;
-      }
-      importModal.classList.add('hidden');
-      if (format === 'xlsx') {
-        const buffer = new Uint8Array(await file.arrayBuffer());
-        await window.api.dataImportCustom({ format, datasets, buffer: Array.from(buffer) });
-        setStatus('Import Excel termine.');
-        refreshAll();
-        return;
-      }
-      const content = await file.text();
-      const payload = JSON.parse(content);
-      await window.api.dataImportCustom({ format, datasets, data: payload });
-      setStatus('Import JSON termine.');
-      refreshAll();
-    } catch (err) {
-      setStatus('Import impossible: ' + err.message, true);
-    }
   });
 }
 
@@ -1028,6 +985,9 @@ closeYearForm.addEventListener('submit', async (event) => {
     };
   });
 
+  const submitBtn = closeYearForm.querySelector('button[type="submit"]');
+  if (submitBtn && submitBtn.disabled) return;
+  if (submitBtn) submitBtn.disabled = true;
   try {
     await window.api.yearsClose({
       current_year_id: Number(currentYearId),
@@ -1040,10 +1000,14 @@ closeYearForm.addEventListener('submit', async (event) => {
     refreshAll();
   } catch (err) {
     setStatus(err.message, true);
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
 
-function setStatus(message, isError) {
+function setStatus(rawMessage, isError) {
+  // Electron prefixe les erreurs transmises par le processus principal d'un texte technique en anglais.
+  const message = String(rawMessage || '').replace(/Error invoking remote method '[^']+': (Error: )?/g, '');
   statusBar.textContent = message;
   const inProgress = /\.\.\.$/.test(String(message || '').trim());
   if (isError) {
@@ -2124,6 +2088,7 @@ loanForm.addEventListener('submit', async (event) => {
 refreshAll()
   .then(() => updateLibraryStatus())
   .catch((err) => setStatus(err.message, true));
+refreshBackupReminder();
 showAddForm('school_year');
 resetLoanSubmitState();
 if (loanDueDate) {

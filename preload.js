@@ -43,10 +43,8 @@ contextBridge.exposeInMainWorld('api', {
   libraryInfo: () => ipcRenderer.invoke('library:info'),
   statsGet: () => ipcRenderer.invoke('stats:get'),
 
-  dataExport: () => ipcRenderer.invoke('data:export'),
-  dataImport: (payload) => ipcRenderer.invoke('data:import', payload),
   dataExportCustom: (payload) => ipcRenderer.invoke('data:exportCustom', payload),
-  dataImportCustom: (payload) => ipcRenderer.invoke('data:importCustom', payload),
-  dataImportDb: (payload) => ipcRenderer.invoke('data:importDb', payload),
-  importPick: () => ipcRenderer.invoke('import:pick')
+  importPick: (options) => ipcRenderer.invoke('import:pick', options),
+  backupSave: () => ipcRenderer.invoke('backup:save'),
+  backupStatus: () => ipcRenderer.invoke('backup:status')
 });

@@ -25,6 +25,8 @@
       "preload.js",
       "migrations.js",
       "stats.js",
+      "data-transfer.js",
+      "backup-policy.js",
       "renderer/**/*",
       "node_modules/**/*",
       "!test/**/*"
