@@ -914,6 +914,12 @@ if (manageLibraryBtn) {
   });
 }
 
+const helpBtn = document.getElementById('helpBtn');
+const helpModal = document.getElementById('helpModal');
+const helpClose = document.getElementById('helpClose');
+if (helpBtn && helpModal) helpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
+if (helpClose && helpModal) helpClose.addEventListener('click', () => helpModal.classList.add('hidden'));
+
 const templateBtn = document.getElementById('templateBtn');
 if (templateBtn) {
   templateBtn.addEventListener('click', async () => {

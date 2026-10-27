@@ -1179,6 +1179,52 @@ function lockApp() {
   return !unlocked;
 }
 
+/*
+ * Mises a jour automatiques (version installee seulement) : la nouvelle
+ * version est telechargee discretement depuis les publications GitHub du
+ * projet, puis installee a la fermeture de l'application. Sans internet, rien
+ * ne se passe. Les donnees ne sont pas touchees (elles sont dans le dossier
+ * de l'utilisateur, pas dans celui du programme).
+ */
+const UPDATE_CHECK_DELAY_MS = 15 * 1000;
+
+function setupAutoUpdates() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require('electron-updater'));
+  } catch (e) {
+    logStartupError(e);
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('error', (err) => {
+    // pas d'internet, GitHub indisponible... : on reessaiera au prochain lancement
+    logStartupError(`Mise a jour impossible : ${err && err.message ? err.message : err}`);
+  });
+  autoUpdater.on('update-downloaded', async (info) => {
+    if (!mainWindow) return;
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Mise à jour prête',
+      message: `Une nouvelle version de Biblio-rians (${info.version}) est prête.`,
+      detail: 'Elle sera installée automatiquement à la prochaine fermeture de l\'application. Vos livres, élèves et prêts sont conservés.',
+      buttons: ['Plus tard', 'Redémarrer maintenant'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    });
+    if (response === 1) {
+      flushAutoBackup();
+      autoUpdater.quitAndInstall();
+    }
+  });
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => { /* deja consigne par l'evenement 'error' */ });
+  }, UPDATE_CHECK_DELAY_MS);
+}
+
 function logStartupError(err) {
   try {
     const dataDir = app.getPath('userData');
@@ -2062,6 +2108,7 @@ if (!gotSingleInstanceLock) {
       }
       setupIpc();
       createWindow();
+      setupAutoUpdates();
     } catch (err) {
       logStartupError(err);
       dialog.showErrorBox(

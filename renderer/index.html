@@ -31,6 +31,7 @@
       <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 014.8 1c0 1.7-2.4 2.2-2.4 3.6"/><line x1="12" y1="17" x2="12" y2="17.1"/></symbol>
       <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
       <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><rect x="8" y="4" width="7" height="5"/><rect x="8" y="13" width="8" height="7" rx="1"/></symbol>
     </defs>
@@ -70,6 +71,7 @@
           </select>
         </label>
         <button id="lockAppBtn" type="button" class="hidden" title="Verrouiller l'application quand vous quittez le poste"><svg class="icon"><use href="#i-lock"/></svg>Verrouiller</button>
+        <button id="helpBtn" type="button"><svg class="icon"><use href="#i-help"/></svg>Aide</button>
         <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Réglages</button>
         <button id="openBackupSave" type="button" class="save-btn" title="Enregistrer une copie de toutes vos données (sur une clé USB par exemple)"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder</button>
       </div>
@@ -473,6 +475,89 @@
               <button type="button" class="btn" id="welcomeFinish">Terminer</button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section id="helpModal" class="modal hidden">
+        <div class="modal-content modal-wide help">
+          <div class="panel-header">
+            <h2><svg class="icon"><use href="#i-help"/></svg>Aide</h2>
+            <button id="helpClose" class="ghost" type="button"><svg class="icon"><use href="#i-x"/></svg>Fermer</button>
+          </div>
+          <p class="card-sub">Les réponses aux questions les plus fréquentes. Cliquez sur une question pour l'ouvrir.</p>
+
+          <details open>
+            <summary>Prêter un livre à un élève</summary>
+            <ol>
+              <li>Ouvrez l'onglet <strong>Emprunts</strong> et vérifiez que <strong>« Prêter un livre »</strong> est sélectionné.</li>
+              <li>Tapez le début du nom ou du prénom de l'élève, puis cliquez sur son nom. Vous pouvez aussi choisir sa classe pour voir toute la liste.</li>
+              <li>Scannez le code-barres du livre (ou tapez son titre et cliquez dessus).</li>
+              <li>Cliquez sur <strong>« Valider le prêt »</strong>. Un petit son confirme l'enregistrement.</li>
+            </ol>
+          </details>
+
+          <details>
+            <summary>Enregistrer le retour d'un livre</summary>
+            <ol>
+              <li>Dans l'onglet <strong>Emprunts</strong>, cliquez sur <strong>« Rendre un livre »</strong> (bouton vert).</li>
+              <li>Scannez le livre rapporté : le retour est enregistré tout de suite.</li>
+              <li>Si plusieurs élèves ont le même livre, cliquez sur le nom de l'élève qui le rapporte.</li>
+            </ol>
+            <p>Sans scanner, vous pouvez aussi taper le titre du livre ou le nom de l'élève.</p>
+          </details>
+
+          <details>
+            <summary>Ajouter des livres</summary>
+            <p>Onglet <strong>Livres</strong> : scannez ou tapez l'ISBN (le numéro sous le code-barres). Le titre, l'auteur et la couverture se remplissent tout seuls si l'ordinateur est connecté à internet. Sinon, tapez-les à la main, puis cliquez sur <strong>« Ajouter ce livre »</strong>.</p>
+            <p>Pour ajouter beaucoup de livres d'un coup : <strong>Réglages &gt; Télécharger le modèle Excel</strong>, remplissez la feuille « Livres », puis <strong>Réglages &gt; Importer un fichier</strong>.</p>
+          </details>
+
+          <details>
+            <summary>Ajouter des élèves et des classes</summary>
+            <p>Onglet <strong>Élèves</strong> : créez d'abord l'année scolaire, puis les classes, puis les élèves.</p>
+            <p>Pour toute une classe d'un coup : téléchargez le modèle Excel (<strong>Réglages</strong>), remplissez la feuille « Élèves » (nom, prénom, niveau, enseignant), puis importez-le. Les classes manquantes sont créées automatiquement.</p>
+          </details>
+
+          <details>
+            <summary>Les livres en retard</summary>
+            <p>Un livre est en retard à partir du lendemain de sa date de retour prévue. Dans l'onglet <strong>Emprunts</strong>, le filtre <strong>« En retard »</strong> les liste, et le bouton <strong>« Imprimer les retards »</strong> imprime une liste classe par classe, à donner aux enseignants.</p>
+          </details>
+
+          <details>
+            <summary>La fin de l'année scolaire</summary>
+            <p>Onglet <strong>Élèves</strong>, en bas : <strong>« Clôturer l'année »</strong>. L'application propose de faire passer chaque classe au niveau suivant (CE1 vers CE2...). Vérifiez les enseignants de l'an prochain, puis validez. Les élèves de CM2 quittent l'école : ils restent dans l'historique. Une copie de sécurité est faite juste avant.</p>
+          </details>
+
+          <details>
+            <summary>Sauvegarder mes données (important)</summary>
+            <p>L'application fait chaque jour une sauvegarde sur cet ordinateur. Mais si l'ordinateur tombe en panne, elle serait perdue avec lui.</p>
+            <p>Environ une fois par semaine : branchez une clé USB, cliquez sur <strong>« Sauvegarder »</strong> en haut à droite, choisissez la clé, puis <strong>« Enregistrer la sauvegarde »</strong>. Gardez la clé à l'école, dans un endroit sûr : elle contient les noms des élèves.</p>
+          </details>
+
+          <details>
+            <summary>Je me suis trompé(e) : revenir en arrière</summary>
+            <p><strong>Réglages &gt; Revenir à un jour précédent</strong> : choisissez la sauvegarde du jour voulu (le nom du fichier contient la date). L'état actuel est conservé de côté au cas où.</p>
+            <p>Pour un prêt enregistré par erreur, utilisez simplement <strong>« Annuler le prêt »</strong> dans la liste des prêts.</p>
+          </details>
+
+          <details>
+            <summary>Changer d'ordinateur</summary>
+            <ol>
+              <li>Sur l'ancien ordinateur : <strong>Sauvegarder</strong> sur une clé USB.</li>
+              <li>Installez Biblio-rians sur le nouvel ordinateur.</li>
+              <li>Au premier lancement, cliquez sur <strong>« J'ai déjà une sauvegarde »</strong> et choisissez le fichier sur la clé. Toutes les bibliothèques sont récupérées.</li>
+            </ol>
+          </details>
+
+          <details>
+            <summary>Le mot de passe</summary>
+            <p>Un mot de passe (Réglages) empêche les enfants d'ouvrir l'application. Quand vous quittez le poste, cliquez sur <strong>« Verrouiller »</strong> en haut de l'écran. Notez le mot de passe en lieu sûr : s'il est oublié, il faudra l'aide d'une personne qui sait modifier les réglages de l'ordinateur.</p>
+          </details>
+
+          <details>
+            <summary>L'application affiche un problème au démarrage</summary>
+            <p>Pas d'inquiétude : rien n'est effacé. Choisissez <strong>« Restaurer la sauvegarde automatique »</strong>. Si cela ne suffit pas, choisissez <strong>« Choisir un fichier de sauvegarde »</strong> et prenez votre dernière sauvegarde sur clé USB.</p>
+          </details>
         </div>
       </section>
 
