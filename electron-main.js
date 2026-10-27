@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, safeStorage, session } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const fs = require('fs');
 const crypto = require('crypto');
 const initSqlJs = require('sql.js');
@@ -70,8 +71,11 @@ function buildLibraryCatalog(configLibraries) {
     configLibraries.forEach((item) => {
       const key = slugifyLibraryKey(item && item.key ? item.key : item && item.name ? item.name : '');
       const name = String(item && item.name ? item.name : '').trim();
-      const file = String(item && item.file ? item.file : '').trim();
-      if (!key || !name || !file) return;
+      // Le nom de fichier vient de settings.json : on n'accepte qu'un simple nom
+      // de fichier de bibliotheque, jamais un chemin vers un autre dossier.
+      const requestedFile = String(item && item.file ? item.file : '').trim();
+      const file = /^biblio-[a-z0-9-]+\.sqlite3$/.test(requestedFile) ? requestedFile : `biblio-${key}.sqlite3`;
+      if (!key || !name) return;
       map.set(key, { key, name, file });
     });
   }
@@ -1077,7 +1081,7 @@ function setAuthPassword(password) {
   }
   cfg.library = currentLibrary;
   cfg.libraries = libraryCatalog;
-  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2));
+  writeConfig(cfg);
 }
 
 function verifyAuthPassword(password) {
@@ -1087,6 +1091,61 @@ function verifyAuthPassword(password) {
   const expected = Buffer.from(cfg.auth.hash);
   if (attempt.length !== expected.length) return false;
   return crypto.timingSafeEqual(attempt, expected);
+}
+
+/*
+ * Verrou : l'etat "deverrouille" est tenu ici, dans le processus principal,
+ * et non dans l'interface. Tant qu'il n'est pas leve, toutes les demandes de
+ * donnees sont refusees (voir handle()). Apres 5 essais rates, on impose une
+ * pause de 30 secondes.
+ */
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MS = 30 * 1000;
+let unlocked = false;
+let failedAttempts = 0;
+let lockedUntil = 0;
+
+function isUnlocked() {
+  return unlocked || !isAuthSet();
+}
+
+function tryUnlock(password) {
+  if (!isAuthSet()) {
+    unlocked = true;
+    return { ok: true };
+  }
+  const now = Date.now();
+  if (now < lockedUntil) {
+    return { ok: false, waitSeconds: Math.ceil((lockedUntil - now) / 1000) };
+  }
+  if (verifyAuthPassword(password)) {
+    unlocked = true;
+    failedAttempts = 0;
+    return { ok: true };
+  }
+  failedAttempts += 1;
+  if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+    failedAttempts = 0;
+    lockedUntil = now + LOCKOUT_MS;
+    return { ok: false, waitSeconds: Math.ceil(LOCKOUT_MS / 1000) };
+  }
+  return { ok: false };
+}
+
+function changePassword(nextPassword, currentPassword) {
+  if (isAuthSet() && !verifyAuthPassword(currentPassword)) {
+    throw new Error('Le mot de passe actuel est incorrect.');
+  }
+  if (nextPassword && nextPassword.length < 4) {
+    throw new Error('Le mot de passe doit contenir au moins 4 caractères.');
+  }
+  setAuthPassword(nextPassword);
+  unlocked = true;
+}
+
+function lockApp() {
+  if (isAuthSet()) unlocked = false;
+  return !unlocked;
 }
 
 function logStartupError(err) {
@@ -1111,11 +1170,20 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       devTools: !app.isPackaged,
       preload: path.join(__dirname, 'preload.js')
     },
     title: 'Biblio-rians - Bibliotheque scolaire'
   });
+
+  // La fenetre n'affiche que l'application : pas de navigation vers un autre
+  // contenu, pas de nouvelle fenetre, pas d'acces camera/micro/position...
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.maximize();
@@ -1366,7 +1434,7 @@ async function lookupIsbn(isbn) {
           title: v.title || '',
           author: (v.authors && v.authors.join(', ')) || '',
           year,
-          coverUrl: (v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail)) || ''
+          coverUrl: ((v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail)) || '').replace(/^http:\/\//, 'https://')
         };
       }
     }
@@ -1377,22 +1445,250 @@ async function lookupIsbn(isbn) {
   return null;
 }
 
+/*
+ * Garde-fous des echanges avec l'interface (IPC). Chaque demande :
+ *  1. doit venir de la page de l'application (pas d'un autre contenu) ;
+ *  2. est refusee tant que l'application est verrouillee par mot de passe
+ *     (sauf les demandes de deverrouillage) ;
+ *  3. voit ses donnees nettoyees et verifiees (types, longueurs, plages)
+ *     avant d'atteindre la base ;
+ *  4. renvoie un message d'erreur comprehensible en cas de refus SQLite.
+ */
+function normalizeFileUrl(url) {
+  try {
+    return decodeURIComponent(String(url).split('#')[0].split('?')[0]).toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+const RENDERER_URL = normalizeFileUrl(pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href);
+
+function assertTrustedSender(event) {
+  const url = event && event.senderFrame ? event.senderFrame.url : '';
+  if (!url || normalizeFileUrl(url) !== RENDERER_URL) {
+    throw new Error('Demande refusee.');
+  }
+}
+
+function asObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function toId(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error('Élément introuvable.');
+  }
+  return n;
+}
+
+function optionalId(value) {
+  return value === undefined || value === null || value === '' ? null : toId(value);
+}
+
+function cleanText(value, max = 200) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+  return text || null;
+}
+
+function requiredText(value, label, max = 200) {
+  const text = cleanText(value, max);
+  if (!text) throw new Error(`${label} est obligatoire.`);
+  return text;
+}
+
+function optionalInt(value, min, max, label) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new Error(`${label} doit être un nombre entre ${min} et ${max}.`);
+  }
+  return n;
+}
+
+function optionalDate(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const text = String(value);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(text) || Number.isNaN(new Date(text).getTime())) {
+    throw new Error('La date n\'est pas valide.');
+  }
+  return text.slice(0, 30);
+}
+
+function sanitizeBook(payload, withId) {
+  const p = asObject(payload);
+  return {
+    ...(withId ? { id: toId(p.id) } : {}),
+    isbn: cleanText(p.isbn, 30),
+    title: requiredText(p.title, 'Le titre', 300),
+    author: cleanText(p.author, 200),
+    year: optionalInt(p.year, 0, 2100, 'L\'année de publication'),
+    copies: optionalInt(p.copies, 1, 999, 'Le nombre d\'exemplaires') || 1,
+    numero: cleanText(p.numero, 50),
+    location: cleanText(p.location, 200)
+  };
+}
+
+function sanitizeStudent(payload, withId) {
+  const p = asObject(payload);
+  const out = {
+    ...(withId ? { id: toId(p.id) } : {}),
+    class_id: optionalId(p.class_id),
+    last_name: cleanText(p.last_name, 100),
+    first_name: cleanText(p.first_name, 100),
+    birth_year: optionalInt(p.birth_year, 1900, 2100, 'L\'année de naissance'),
+    class: cleanText(p.class, 120),
+    school_year: cleanText(p.school_year, 40)
+  };
+  if (!out.last_name && !out.first_name) {
+    throw new Error('Le nom ou le prénom de l\'élève est obligatoire.');
+  }
+  return out;
+}
+
+function sanitizeYear(payload, withId) {
+  const p = asObject(payload);
+  return {
+    ...(withId ? { id: toId(p.id) } : {}),
+    name: requiredText(p.name, 'Le nom de l\'année scolaire', 40)
+  };
+}
+
+function sanitizeClass(payload, withId) {
+  const p = asObject(payload);
+  return {
+    ...(withId ? { id: toId(p.id) } : {}),
+    school_year_id: optionalId(p.school_year_id),
+    name: cleanText(p.name, 120),
+    teacher_name: cleanText(p.teacher_name, 120),
+    level: cleanText(p.level, 40)
+  };
+}
+
+function sanitizeYearClose(payload) {
+  const p = asObject(payload);
+  const classes = Array.isArray(p.classes) ? p.classes.slice(0, 500) : [];
+  return {
+    current_year_id: toId(p.current_year_id),
+    next_year_name: requiredText(p.next_year_name, 'Le nom de la nouvelle année', 40),
+    classes: classes.map((item) => {
+      const c = asObject(item);
+      return {
+        class_id: toId(c.class_id),
+        new_name: cleanText(c.new_name, 120) || '',
+        new_teacher_name: cleanText(c.new_teacher_name, 120),
+        new_level: cleanText(c.new_level, 40),
+        carry_students: c.carry_students === true
+      };
+    })
+  };
+}
+
+function sanitizeExportOptions(options) {
+  const o = asObject(options);
+  const fields = {};
+  Object.entries(asObject(o.fields)).forEach(([dataset, list]) => {
+    if (!TABLES.includes(dataset) || !Array.isArray(list)) return;
+    fields[dataset] = list.map(String).filter((name) => /^[a-z_]{1,40}$/.test(name));
+  });
+  return {
+    format: o.format === 'xlsx' ? 'xlsx' : 'json',
+    datasets: (Array.isArray(o.datasets) ? o.datasets : []).filter((d) => TABLES.includes(d)),
+    fields
+  };
+}
+
+const libraryKeyArg = (value) => requiredText(value, 'La bibliothèque', 80);
+const passwordArg = (value) => (value === undefined || value === null ? '' : String(value).slice(0, 200));
+
+/* Nettoyage des arguments, par canal. Un canal absent de la liste ne recoit aucun argument. */
+const ARGUMENT_RULES = {
+  'auth:set': [passwordArg, passwordArg],
+  'auth:verify': [passwordArg],
+  'library:create': [(v) => requiredText(v, 'Le nom de la bibliothèque', 80)],
+  'library:rename': [libraryKeyArg, (v) => requiredText(v, 'Le nom de la bibliothèque', 80)],
+  'library:delete': [libraryKeyArg],
+  'library:set': [libraryKeyArg],
+  'books:add': [(p) => sanitizeBook(p, false)],
+  'books:update': [(p) => sanitizeBook(p, true)],
+  'books:delete': [toId],
+  'books:lookup': [(v) => cleanText(v, 30) || ''],
+  'students:add': [(p) => sanitizeStudent(p, false)],
+  'students:update': [(p) => sanitizeStudent(p, true)],
+  'students:delete': [toId],
+  'students:history': [toId],
+  'years:add': [(p) => sanitizeYear(p, false)],
+  'years:update': [(p) => sanitizeYear(p, true)],
+  'years:delete': [toId],
+  'years:close': [sanitizeYearClose],
+  'classes:add': [(p) => sanitizeClass(p, false)],
+  'classes:update': [(p) => sanitizeClass(p, true)],
+  'classes:delete': [toId],
+  'loans:add': [(p) => {
+    const o = asObject(p);
+    return { book_id: toId(o.book_id), student_id: toId(o.student_id), due_date: optionalDate(o.due_date) };
+  }],
+  'loans:return': [toId],
+  'loans:delete': [toId],
+  'loans:returnByBook': [(p) => {
+    const o = asObject(p);
+    return { book_id: toId(o.book_id), student_id: optionalId(o.student_id) };
+  }],
+  'import:pick': [(o) => ({ fromAutoBackups: asObject(o).fromAutoBackups === true })],
+  'data:exportCustom': [sanitizeExportOptions]
+};
+
+const PUBLIC_CHANNELS = new Set(['auth:isSet', 'auth:verify']);
+
+function friendlyError(err) {
+  const message = err && err.message ? err.message : String(err);
+  if (/UNIQUE constraint failed: school_years\.name/.test(message)) {
+    return new Error('Cette année scolaire existe déjà.');
+  }
+  if (/FOREIGN KEY constraint failed/.test(message)) {
+    return new Error('Impossible : cet élément est encore utilisé ailleurs (par exemple par un prêt).');
+  }
+  if (/NOT NULL constraint failed/.test(message)) {
+    return new Error('Une information obligatoire est manquante.');
+  }
+  return err instanceof Error ? err : new Error(message);
+}
+
+function handle(channel, handler) {
+  const rules = ARGUMENT_RULES[channel] || [];
+  ipcMain.handle(channel, async (event, ...args) => {
+    assertTrustedSender(event);
+    if (!PUBLIC_CHANNELS.has(channel) && !isUnlocked()) {
+      throw new Error('L\'application est verrouillée. Saisissez le mot de passe.');
+    }
+    try {
+      const cleanArgs = rules.map((rule, index) => rule(args[index]));
+      return await handler(event, ...cleanArgs);
+    } catch (err) {
+      throw friendlyError(err);
+    }
+  });
+}
+
 function setupIpc() {
-  ipcMain.handle('auth:isSet', () => isAuthSet());
-  ipcMain.handle('auth:set', (_e, password) => {
-    setAuthPassword(password);
+  handle('auth:isSet', () => isAuthSet());
+  handle('auth:verify', (_e, password) => tryUnlock(password));
+  handle('auth:set', (_e, nextPassword, currentPassword) => {
+    changePassword(nextPassword, currentPassword);
     return true;
   });
-  ipcMain.handle('auth:verify', (_e, password) => verifyAuthPassword(password));
+  handle('auth:lock', () => lockApp());
 
-  ipcMain.handle('library:get', () => currentLibrary);
-  ipcMain.handle('library:list', () => listLibraries());
-  ipcMain.handle('library:create', (_e, name) => createLibrary(name));
-  ipcMain.handle('library:rename', (_e, libraryKey, nextName) => renameLibrary(libraryKey, nextName));
-  ipcMain.handle('library:delete', (_e, libraryKey) => deleteLibrary(libraryKey));
-  ipcMain.handle('library:info', () => getDbStats());
-  ipcMain.handle('stats:get', () => computeStatistics(db));
-  ipcMain.handle('library:set', async (_e, libraryKey) => {
+  handle('library:get', () => currentLibrary);
+  handle('library:list', () => listLibraries());
+  handle('library:create', (_e, name) => createLibrary(name));
+  handle('library:rename', (_e, libraryKey, nextName) => renameLibrary(libraryKey, nextName));
+  handle('library:delete', (_e, libraryKey) => deleteLibrary(libraryKey));
+  handle('library:info', () => getDbStats());
+  handle('stats:get', () => computeStatistics(db));
+  handle('library:set', async (_e, libraryKey) => {
     if (!getLibraryByKey(libraryKey)) {
       throw new Error('Bibliotheque inconnue.');
     }
@@ -1407,10 +1703,10 @@ function setupIpc() {
     }
     return currentLibrary;
   });
-  ipcMain.handle('backup:save', () => saveBackupToFile());
-  ipcMain.handle('backup:status', () => getBackupStatus());
-  ipcMain.handle('books:list', () => listBooks());
-  ipcMain.handle('books:add', (_e, payload) => {
+  handle('backup:save', () => saveBackupToFile());
+  handle('backup:status', () => getBackupStatus());
+  handle('books:list', () => listBooks());
+  handle('books:add', (_e, payload) => {
     const now = new Date().toISOString();
     run(`
       INSERT INTO books (isbn, title, author, year, copies, numero, location, created_at)
@@ -1419,7 +1715,7 @@ function setupIpc() {
     persist();
     return listBooks();
   });
-  ipcMain.handle('books:update', (_e, payload) => {
+  handle('books:update', (_e, payload) => {
     run(`
       UPDATE books
       SET isbn = ?, title = ?, author = ?, year = ?, copies = ?, numero = ?, location = ?
@@ -1428,7 +1724,7 @@ function setupIpc() {
     persist();
     return listBooks();
   });
-  ipcMain.handle('books:delete', (_e, id) => {
+  handle('books:delete', (_e, id) => {
     const activeLoan = get('SELECT COUNT(*) AS c FROM loans WHERE book_id = ? AND return_date IS NULL', [id]);
     if (activeLoan && activeLoan.c > 0) {
       throw new Error('Impossible de supprimer ce livre : un ou plusieurs exemplaires sont actuellement empruntes. Enregistrez d\'abord leur retour.');
@@ -1437,12 +1733,12 @@ function setupIpc() {
     persist();
     return listBooks();
   });
-  ipcMain.handle('books:lookup', async (_e, isbn) => {
+  handle('books:lookup', async (_e, isbn) => {
     return lookupIsbn(isbn);
   });
 
-  ipcMain.handle('students:list', () => listStudents());
-  ipcMain.handle('students:add', (_e, payload) => {
+  handle('students:list', () => listStudents());
+  handle('students:add', (_e, payload) => {
     const now = new Date().toISOString();
     const data = normalizeStudentPayload(payload);
     const fullName = `${data.last_name || ''} ${data.first_name || ''}`.trim();
@@ -1459,7 +1755,7 @@ function setupIpc() {
     persist();
     return listStudents();
   });
-  ipcMain.handle('students:update', (_e, payload) => {
+  handle('students:update', (_e, payload) => {
     const data = normalizeStudentPayload(payload);
     const fullName = `${data.last_name || ''} ${data.first_name || ''}`.trim();
     const before = get('SELECT class_id FROM students WHERE id = ?', [payload.id]);
@@ -1480,31 +1776,31 @@ function setupIpc() {
     persist();
     return listStudents();
   });
-    ipcMain.handle('years:list', () => all('SELECT * FROM school_years ORDER BY name DESC'));
-    ipcMain.handle('years:add', (_e, payload) => {
+    handle('years:list', () => all('SELECT * FROM school_years ORDER BY name DESC'));
+    handle('years:add', (_e, payload) => {
       const now = new Date().toISOString();
       insertAndGetId('INSERT INTO school_years (name, created_at) VALUES (?, ?)', [payload.name, now]);
       persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
-    ipcMain.handle('years:update', (_e, payload) => {
+    handle('years:update', (_e, payload) => {
       run('UPDATE school_years SET name = ? WHERE id = ?', [payload.name, payload.id]);
       persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
-    ipcMain.handle('years:delete', (_e, id) => {
+    handle('years:delete', (_e, id) => {
       run('DELETE FROM school_years WHERE id = ?', [id]);
       persist();
       return all('SELECT * FROM school_years ORDER BY name DESC');
     });
 
-    ipcMain.handle('classes:list', () => all(`
+    handle('classes:list', () => all(`
       SELECT c.*, y.name AS school_year
       FROM classes c
       LEFT JOIN school_years y ON y.id = c.school_year_id
       ORDER BY y.name DESC, c.name COLLATE NOCASE
     `));
-    ipcMain.handle('classes:add', (_e, payload) => {
+    handle('classes:add', (_e, payload) => {
       const now = new Date().toISOString();
       const autoName = `Classe ${payload.level || ''} ${payload.teacher_name || ''}`.trim();
       const className = (payload.name || autoName || 'Classe').trim();
@@ -1515,7 +1811,7 @@ function setupIpc() {
       persist();
       return all('SELECT * FROM classes');
     });
-    ipcMain.handle('classes:update', (_e, payload) => {
+    handle('classes:update', (_e, payload) => {
       const autoName = `Classe ${payload.level || ''} ${payload.teacher_name || ''}`.trim();
       const className = (payload.name || autoName || 'Classe').trim();
       run(
@@ -1525,12 +1821,12 @@ function setupIpc() {
       persist();
       return all('SELECT * FROM classes');
     });
-    ipcMain.handle('classes:delete', (_e, id) => {
+    handle('classes:delete', (_e, id) => {
       run('DELETE FROM classes WHERE id = ?', [id]);
       persist();
       return all('SELECT * FROM classes');
     });
-    ipcMain.handle('students:history', (_e, studentId) => {
+    handle('students:history', (_e, studentId) => {
       return all(`
         SELECT h.*, c.name AS class_name, c.teacher_name, c.level, y.name AS school_year
         FROM student_history h
@@ -1540,7 +1836,7 @@ function setupIpc() {
         ORDER BY h.start_date DESC
       `, [studentId]);
     });
-    ipcMain.handle('years:close', (_e, payload) => {
+    handle('years:close', (_e, payload) => {
       const now = new Date().toISOString();
       const currentYearId = payload.current_year_id;
       const nextName = payload.next_year_name;
@@ -1582,7 +1878,7 @@ function setupIpc() {
       persist();
       return true;
     });
-  ipcMain.handle('students:delete', (_e, id) => {
+  handle('students:delete', (_e, id) => {
     const activeLoan = get('SELECT COUNT(*) AS c FROM loans WHERE student_id = ? AND return_date IS NULL', [id]);
     if (activeLoan && activeLoan.c > 0) {
       throw new Error('Impossible de supprimer cet eleve : il a un ou plusieurs emprunts en cours. Enregistrez d\'abord leur retour.');
@@ -1592,8 +1888,8 @@ function setupIpc() {
     return listStudents();
   });
 
-  ipcMain.handle('loans:list', () => listLoansActive());
-  ipcMain.handle('loans:add', (_e, payload) => {
+  handle('loans:list', () => listLoansActive());
+  handle('loans:add', (_e, payload) => {
     const available = getAvailableCopies(payload.book_id);
     if (available <= 0) {
       throw new Error('Aucun exemplaire disponible pour ce livre.');
@@ -1606,12 +1902,12 @@ function setupIpc() {
     persist();
     return listLoansActive();
   });
-  ipcMain.handle('loans:return', (_e, id) => {
+  handle('loans:return', (_e, id) => {
     run('UPDATE loans SET return_date = ? WHERE id = ?', [new Date().toISOString(), id]);
     persist();
     return listLoansActive();
   });
-  ipcMain.handle('loans:returnByBook', (_e, payload) => {
+  handle('loans:returnByBook', (_e, payload) => {
     const bookId = payload.book_id ? Number(payload.book_id) : null;
     const studentId = payload.student_id ? Number(payload.student_id) : null;
     if (!bookId) {
@@ -1634,13 +1930,13 @@ function setupIpc() {
     persist();
     return listLoansActive();
   });
-  ipcMain.handle('loans:delete', (_e, id) => {
+  handle('loans:delete', (_e, id) => {
     run('DELETE FROM loans WHERE id = ?', [id]);
     persist();
     return listLoansActive();
   });
 
-  ipcMain.handle('import:pick', async (_e, options) => {
+  handle('import:pick', async (_e, options) => {
     const fromAutoBackups = !!(options && options.fromAutoBackups);
     const result = await dialog.showOpenDialog(mainWindow, {
       title: fromAutoBackups ? 'Revenir à une sauvegarde automatique' : 'Importer ou restaurer',
@@ -1656,7 +1952,7 @@ function setupIpc() {
     return runImportFile(result.filePaths[0]);
   });
 
-  ipcMain.handle('data:exportCustom', (_e, options) => {
+  handle('data:exportCustom', (_e, options) => {
     const data = buildExportData(options || {});
     if (options && options.format === 'xlsx') {
       const workbook = XLSX.utils.book_new();

@@ -2,8 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   authIsSet: () => ipcRenderer.invoke('auth:isSet'),
-  authSet: (password) => ipcRenderer.invoke('auth:set', password),
+  authSet: (nextPassword, currentPassword) => ipcRenderer.invoke('auth:set', nextPassword, currentPassword),
   authVerify: (password) => ipcRenderer.invoke('auth:verify', password),
+  authLock: () => ipcRenderer.invoke('auth:lock'),
 
   booksList: () => ipcRenderer.invoke('books:list'),
   booksAdd: (payload) => ipcRenderer.invoke('books:add', payload),

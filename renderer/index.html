@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://covers.openlibrary.org https://archive.org https://*.archive.org https://books.google.com https://*.googleusercontent.com; media-src 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" />
     <title>Biblio-rians - Bibliotheque scolaire</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
@@ -30,6 +31,7 @@
       <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></symbol>
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
       <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><rect x="8" y="4" width="7" height="5"/><rect x="8" y="13" width="8" height="7" rx="1"/></symbol>
     </defs>
     </svg>
@@ -67,6 +69,7 @@
             <option value="maternelle">Maternelle</option>
           </select>
         </label>
+        <button id="lockAppBtn" type="button" class="hidden" title="Verrouiller l'application quand vous quittez le poste"><svg class="icon"><use href="#i-lock"/></svg>Verrouiller</button>
         <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Bases</button>
         <button id="openAddTab"><svg class="icon"><use href="#i-plus"/></svg>Ajouter</button>
         <button id="openBackupSave" type="button" class="save-btn" title="Enregistrer une copie de toutes vos données (sur une clé USB par exemple)"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder</button>
@@ -420,7 +423,7 @@
                   <option value="xlsx">Excel (XLSX)</option>
                 </select>
               </label>
-              <div class="export-note">Choisissez les donnees et les champs a exporter.</div>
+              <div class="export-note">Choisissez les donnees et les champs a exporter.<br />Ces fichiers contiennent les noms des élèves : rangez-les en lieu sûr et supprimez-les quand ils ne servent plus.</div>
             </div>
             <div class="export-grid">
               <div class="panel subpanel export-card">

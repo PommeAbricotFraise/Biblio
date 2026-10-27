@@ -13,16 +13,51 @@ const lockForm = document.getElementById('lockForm');
 const lockPassword = document.getElementById('lockPassword');
 const lockError = document.getElementById('lockError');
 
+/*
+ * Le verrou est garanti par le processus principal (qui refuse toute donnee
+ * tant qu'il n'est pas leve). Ici on se contente d'afficher l'ecran de
+ * verrouillage, de rendre le reste de la page inactif (inert : ni clic ni
+ * touche Tab) et d'attendre le deverrouillage avant de charger les donnees.
+ */
+let resolveAppUnlocked;
+const appUnlocked = new Promise((resolve) => { resolveAppUnlocked = resolve; });
+
+function setPageInert(isInert) {
+  document.querySelectorAll('.app-topbar, main, #statusBar').forEach((el) => {
+    if (isInert) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  });
+}
+
+function showLockScreen() {
+  document.querySelectorAll('.modal:not(.hidden)').forEach((modal) => modal.classList.add('hidden'));
+  lockScreen.classList.remove('hidden');
+  setPageInert(true);
+  if (lockPassword) setTimeout(() => lockPassword.focus(), 50);
+}
+
+function hideLockScreen() {
+  lockScreen.classList.add('hidden');
+  setPageInert(false);
+  if (lockError) lockError.classList.add('hidden');
+  if (lockPassword) lockPassword.value = '';
+}
+
 async function initAuthLock() {
-  if (!window.api || !window.api.authIsSet || !lockScreen) return;
+  if (!window.api || !window.api.authIsSet || !lockScreen) {
+    resolveAppUnlocked();
+    return;
+  }
+  let isSet = false;
   try {
-    const isSet = await window.api.authIsSet();
-    if (isSet) {
-      lockScreen.classList.remove('hidden');
-      if (lockPassword) setTimeout(() => lockPassword.focus(), 50);
-    }
+    isSet = await window.api.authIsSet();
   } catch (e) {
-    // si la verification echoue, ne pas bloquer l'acces a l'application
+    isSet = false;
+  }
+  if (isSet) {
+    showLockScreen();
+  } else {
+    resolveAppUnlocked();
   }
 }
 
@@ -30,23 +65,44 @@ if (lockForm) {
   lockForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const value = lockPassword ? lockPassword.value : '';
+    let result = null;
     try {
-      const ok = await window.api.authVerify(value);
-      if (ok) {
-        lockScreen.classList.add('hidden');
-        if (lockError) lockError.classList.add('hidden');
-        if (lockPassword) lockPassword.value = '';
-      } else {
-        if (lockError) lockError.classList.remove('hidden');
-        if (lockPassword) { lockPassword.value = ''; lockPassword.focus(); }
-      }
+      result = await window.api.authVerify(value);
     } catch (e) {
-      if (lockError) lockError.classList.remove('hidden');
+      result = null;
     }
+    if (result && result.ok) {
+      hideLockScreen();
+      resolveAppUnlocked();
+      return;
+    }
+    if (lockError) {
+      lockError.textContent = result && result.waitSeconds
+        ? `Trop d'essais. Patientez ${result.waitSeconds} secondes avant de réessayer.`
+        : 'Mot de passe incorrect.';
+      lockError.classList.remove('hidden');
+    }
+    if (lockPassword) { lockPassword.value = ''; lockPassword.focus(); }
+  });
+}
+
+const lockAppBtn = document.getElementById('lockAppBtn');
+async function refreshLockButton() {
+  if (!lockAppBtn || !window.api || !window.api.authIsSet) return;
+  try {
+    lockAppBtn.classList.toggle('hidden', !(await window.api.authIsSet()));
+  } catch (e) {
+    lockAppBtn.classList.add('hidden');
+  }
+}
+if (lockAppBtn) {
+  lockAppBtn.addEventListener('click', async () => {
+    if (await window.api.authLock()) showLockScreen();
   });
 }
 
 initAuthLock();
+appUnlocked.then(refreshLockButton);
 
 /* ---------- Toasts ---------- */
 const toastStack = document.getElementById('toastStack');
@@ -724,7 +780,7 @@ async function switchLibrary(next) {
 
 if (librarySelect) {
   if (window.api && window.api.libraryGet) {
-    window.api.libraryGet().then(async (current) => {
+    appUnlocked.then(() => window.api.libraryGet()).then(async (current) => {
       await refreshLibraries(current || 'primaire');
       updateLibraryBadge(current || librarySelect.value);
     });
@@ -858,14 +914,28 @@ if (libraryActionDelete) {
 const authSetBtn = document.getElementById('authSetBtn');
 const authRemoveBtn = document.getElementById('authRemoveBtn');
 
+/* Si un mot de passe existe deja, il faut le saisir avant de le changer ou de le retirer. */
+async function askCurrentPassword(title) {
+  if (!(await window.api.authIsSet())) return '';
+  const result = await promptDialog({
+    title,
+    message: 'Saisissez d\'abord le mot de passe actuel.',
+    fields: [{ label: 'Mot de passe actuel', type: 'password' }],
+    confirmLabel: 'Continuer'
+  });
+  return result ? result[0] : null;
+}
+
 if (authSetBtn) {
   authSetBtn.addEventListener('click', async () => {
     if (!window.api || !window.api.authSet) return;
+    const current = await askCurrentPassword('Changer le mot de passe');
+    if (current === null) return;
     const result = await promptDialog({
       title: 'Definir un mot de passe',
-      message: 'Ce mot de passe sera demande a chaque lancement de l\'application.',
+      message: 'Ce mot de passe sera demande a chaque lancement de l\'application. Notez-le en lieu sur : sans lui, il faudra l\'aide d\'une personne qui sait modifier les reglages de l\'ordinateur.',
       fields: [
-        { label: 'Nouveau mot de passe', type: 'password' },
+        { label: 'Nouveau mot de passe (4 caracteres minimum)', type: 'password' },
         { label: 'Confirmer le mot de passe', type: 'password' }
       ],
       confirmLabel: 'Definir'
@@ -880,22 +950,34 @@ if (authSetBtn) {
       setStatus('Les deux mots de passe ne correspondent pas.', true);
       return;
     }
-    await window.api.authSet(pwd);
-    setStatus('Mot de passe defini. Il sera demande au prochain lancement.');
+    try {
+      await window.api.authSet(pwd, current);
+      setStatus('Mot de passe defini. Il sera demande au prochain lancement.');
+      refreshLockButton();
+    } catch (err) {
+      setStatus(err.message, true);
+    }
   });
 }
 
 if (authRemoveBtn) {
   authRemoveBtn.addEventListener('click', async () => {
     if (!window.api || !window.api.authSet) return;
+    const current = await askCurrentPassword('Retirer le mot de passe');
+    if (current === null) return;
     const ok = await confirmDialog({
       title: 'Retirer le mot de passe ?',
       message: 'L\'application ne demandera plus de mot de passe au lancement.',
       confirmLabel: 'Retirer'
     });
     if (!ok) return;
-    await window.api.authSet('');
-    setStatus('Mot de passe retire.');
+    try {
+      await window.api.authSet('', current);
+      setStatus('Mot de passe retire.');
+      refreshLockButton();
+    } catch (err) {
+      setStatus(err.message, true);
+    }
   });
 }
 function showAddForm(type) {
@@ -922,7 +1004,7 @@ addChoiceButtons.forEach((btn) => {
 async function buildCloseYearWizard() {
   const years = await window.api.yearsList();
   closeYearCurrent.innerHTML = '<option value="">Choisir une annee a cloturer</option>'
-    + years.map((y) => `<option value="${y.id}">${y.name}</option>`).join('');
+    + years.map((y) => `<option value="${escapeHtml(y.id)}">${escapeHtml(y.name)}</option>`).join('');
 
   if (years[0]) {
     closeYearCurrent.value = years[0].id;
@@ -2085,10 +2167,12 @@ loanForm.addEventListener('submit', async (event) => {
 
 // Export/import handled by dedicated modals.
 
-refreshAll()
-  .then(() => updateLibraryStatus())
-  .catch((err) => setStatus(err.message, true));
-refreshBackupReminder();
+appUnlocked.then(() => {
+  refreshAll()
+    .then(() => updateLibraryStatus())
+    .catch((err) => setStatus(err.message, true));
+  refreshBackupReminder();
+});
 showAddForm('school_year');
 resetLoanSubmitState();
 if (loanDueDate) {
