@@ -1,6 +1,6 @@
 {
   "name": "biblio-rians",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Logiciel de gestion de bibliothèque scolaire, simple et hors ligne",
   "author": "PommeAbricotFraise",
   "main": "electron-main.js",

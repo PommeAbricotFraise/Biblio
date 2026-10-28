@@ -56,7 +56,7 @@ let resolveAppUnlocked;
 const appUnlocked = new Promise((resolve) => { resolveAppUnlocked = resolve; });
 
 function setPageInert(isInert) {
-  document.querySelectorAll('.app-topbar, main, #statusBar').forEach((el) => {
+  document.querySelectorAll('.app-sidebar, .app-header, main, #statusBar').forEach((el) => {
     if (isInert) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
   });
@@ -1361,6 +1361,8 @@ function updateHomeDashboard() {
   const statOverdue = document.getElementById('homeStatOverdue');
   const statOverdueCard = document.getElementById('homeStatOverdueCard');
   const tileOverdueText = document.getElementById('homeTileOverdueText');
+  const greeting = document.getElementById('homeGreeting');
+  if (greeting) greeting.textContent = new Date().getHours() >= 18 ? 'Bonsoir' : 'Bonjour';
   if (statBooks) statBooks.textContent = String(cachedBooks.length);
   if (statStudents) statStudents.textContent = String(cachedStudents.length);
   const overdueCount = cachedLoans.filter(isLoanOverdue).length;

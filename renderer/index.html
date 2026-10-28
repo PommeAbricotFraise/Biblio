@@ -48,15 +48,42 @@
         <p id="lockError" class="lock-error hidden">Mot de passe incorrect.</p>
       </div>
     </section>
-    <div class="app-topbar">
-    <header class="app-header">
+    <div class="app-shell">
+    <aside class="app-sidebar">
       <div class="brand-mark">
         <div class="logo-tile"><svg class="icon"><use href="#i-book"/></svg></div>
         <div>
-          <h1>Biblio-rians <span id="libraryBadge" class="library-badge">Primaire</span></h1>
-          <p>Gestion de bibliothèque scolaire</p>
+          <h1>Biblio-rians</h1>
+          <p>Bibliothèque scolaire</p>
         </div>
       </div>
+
+      <nav class="tabs" aria-label="Menu principal">
+        <button data-tab="home" class="active"><span class="tab-icon tab-icon--lavender"><svg class="icon"><use href="#i-home"/></svg></span>Accueil</button>
+        <button data-tab="books"><span class="tab-icon tab-icon--mint"><svg class="icon"><use href="#i-book"/></svg></span>Livres</button>
+        <button data-tab="students"><span class="tab-icon tab-icon--sky"><svg class="icon"><use href="#i-user"/></svg></span>Élèves</button>
+        <button data-tab="loans"><span class="tab-icon tab-icon--peach"><svg class="icon"><use href="#i-swap"/></svg></span>Emprunts</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <label class="library-switch">
+          <span>Bibliothèque ouverte</span>
+          <select id="librarySelect">
+            <option value="primaire">Primaire</option>
+            <option value="maternelle">Maternelle</option>
+          </select>
+        </label>
+        <div class="sidebar-links">
+          <button id="helpBtn" type="button"><svg class="icon"><use href="#i-help"/></svg>Aide</button>
+          <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Réglages</button>
+          <button id="lockAppBtn" type="button" class="hidden" title="Verrouiller l'application quand vous quittez le poste"><svg class="icon"><use href="#i-lock"/></svg>Verrouiller</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="app-main">
+    <header class="app-header">
+      <span id="libraryBadge" class="library-badge">Primaire</span>
       <div class="actions">
         <div class="font-controls" title="Taille du texte">
           <button type="button" id="fontDecBtn" aria-label="Texte plus petit">A-</button>
@@ -64,31 +91,14 @@
           <button type="button" id="fontIncBtn" aria-label="Texte plus grand">A+</button>
         </div>
         <button type="button" id="contrastToggleBtn"><svg class="icon"><use href="#i-contrast"/></svg>Contraste</button>
-        <label class="library-switch" title="Bibliothèque ouverte">
-          <select id="librarySelect" aria-label="Bibliothèque ouverte">
-            <option value="primaire">Primaire</option>
-            <option value="maternelle">Maternelle</option>
-          </select>
-        </label>
-        <button id="lockAppBtn" type="button" class="hidden" title="Verrouiller l'application quand vous quittez le poste"><svg class="icon"><use href="#i-lock"/></svg>Verrouiller</button>
-        <button id="helpBtn" type="button"><svg class="icon"><use href="#i-help"/></svg>Aide</button>
-        <button id="manageLibraryBtn" type="button"><svg class="icon"><use href="#i-sliders"/></svg>Réglages</button>
         <button id="openBackupSave" type="button" class="save-btn" title="Enregistrer une copie de toutes vos données (sur une clé USB par exemple)"><svg class="icon"><use href="#i-save"/></svg>Sauvegarder</button>
       </div>
     </header>
 
-    <nav class="tabs">
-      <button data-tab="home" class="active"><svg class="icon"><use href="#i-home"/></svg>Accueil</button>
-      <button data-tab="books"><svg class="icon"><use href="#i-book"/></svg>Livres</button>
-      <button data-tab="students"><svg class="icon"><use href="#i-user"/></svg>Élèves</button>
-      <button data-tab="loans"><svg class="icon"><use href="#i-swap"/></svg>Emprunts</button>
-    </nav>
-    </div>
-
     <main>
       <section id="tab-home" class="tab active">
         <div class="hello">
-          <h2>Bonjour <span class="wave">👋</span></h2>
+          <h2 id="homeGreeting">Bonjour</h2>
           <p>Que voulez-vous faire aujourd'hui ?</p>
         </div>
 
@@ -122,27 +132,27 @@
             <h3>Emprunter ou rendre un livre</h3>
             <p>Scanner un livre pour un élève, ou enregistrer un retour.</p>
           </button>
-          <button type="button" class="tile" id="homeTileAddBook">
+          <button type="button" class="tile tile--mint" id="homeTileAddBook">
             <div class="tile-icon"><svg class="icon"><use href="#i-book-plus"/></svg></div>
             <h3>Ajouter un livre</h3>
             <p>Nouveau livre au catalogue, avec recherche automatique.</p>
           </button>
-          <button type="button" class="tile" id="homeTileAddStudent">
+          <button type="button" class="tile tile--sky" id="homeTileAddStudent">
             <div class="tile-icon"><svg class="icon"><use href="#i-user-plus"/></svg></div>
             <h3>Ajouter un élève</h3>
             <p>Inscrire un élève dans une classe.</p>
           </button>
-          <button type="button" class="tile brand-tint" id="homeTileCatalogue">
+          <button type="button" class="tile tile--butter" id="homeTileCatalogue">
             <div class="tile-icon"><svg class="icon"><use href="#i-book"/></svg></div>
             <h3>Voir le catalogue</h3>
             <p>Parcourir et rechercher tous les livres.</p>
           </button>
-          <button type="button" class="tile brand-tint" id="homeTileOverdue">
+          <button type="button" class="tile tile--rose" id="homeTileOverdue">
             <div class="tile-icon"><svg class="icon"><use href="#i-clock"/></svg></div>
             <h3>Prêts en retard</h3>
             <p id="homeTileOverdueText">Aucun prêt en retard actuellement.</p>
           </button>
-          <button type="button" class="tile brand-tint" id="homeTileStats">
+          <button type="button" class="tile tile--lavender" id="homeTileStats">
             <div class="tile-icon"><svg class="icon"><use href="#i-chart"/></svg></div>
             <h3>Statistiques</h3>
             <p>Livres les plus empruntés, classes actives.</p>
@@ -850,6 +860,8 @@
     </main>
 
     <footer id="statusBar">Prêt.</footer>
+    </div>
+    </div>
 
     <div class="dialog-overlay hidden" id="confirmDialogOverlay">
       <div class="dialog-box">
